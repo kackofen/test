@@ -8,6 +8,7 @@ import { GoalWall } from './bonus3d.js';
 import { openAlbum, albumTotal } from './album.js';
 import { openBoard } from './board3d.js';
 import { createApi } from './api3d.js';
+import { getQualitySetting, setQualitySetting } from './fx3d.js';
 import { buildWorlds, levelOpen, bonusOpen, albumCount, totalScore } from './progress.js';
 import { playIntro, prepareVenue } from '../game/intro.js';
 import { LIVES } from '../shared/levelgen.js';
@@ -38,12 +39,12 @@ async function boot() {
     renderer: R, data: A.data, worlds: A.worlds, progress: A.st, look: DEFAULT_LOOK,
     score: () => totalScore(A.st), albumCount: () => albumCount(A.st), albumTotal: () => albumTotal(A.data, A.worlds),
     onEnter: n => n.type === 'bonus' ? playBonus(n) : pickTeam(n),
-    onAlbum: () => showAlbum(), onBoard: () => showBoard(), onMoved: () => A.api.setAt(A.st.at),
+    onAlbum: () => showAlbum(), onBoard: () => showBoard(), onMenu: () => mainMenu(), onMoved: () => A.api.setAt(A.st.at),
     canToggleUnlock: () => A.canToggleUnlock,
     onToggleUnlock: async () => { try { applyState(await A.api.setUnlock(!A.st.unlockAll)); A.map.refresh(); } catch (e) { toast(e.message); } },
   });
   showMap();
-  titleCard();
+  mainMenu(true);
 }
 
 // the progress object is shared with the map, so new server state is copied in, not swapped
@@ -99,24 +100,70 @@ function showMap(celebrate) {
   mapTouch();
   if (celebrate) A.map.celebrate(celebrate);
 }
-function titleCard() {
+// ------------------------------------------------------------------ main menu
+// opened at the start and with Esc on the map; the album / top list / settings come back to it
+function mainMenu(first = false) {
   A.map.inputOff = true;
   const done = Object.values(A.st.levels).filter(l => l.done).length;
-  ui(card('BRASILI <span>3D</span>', `
-    <p class="kicker">Hi ${esc(A.user.nickname)} · Women's World Cup 2027 · Teams = 2023 placeholders</p>
-    <p>Nine worlds: Group A to H and the knockouts. Walk from match to match – every level you finish opens the next one. Group A is playable: New Zealand, Norway, the Philippines and Switzerland, each with its own world, and three different finales.</p>
-    <div class="keys"><span><kbd>←</kbd><kbd>→</kbd> walk / run</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> play · jump · shoot</span><span><kbd>A</kbd> album</span><span><kbd>L</kbd> top list</span><span><kbd>Esc</kbd> pause</span></div>
-    <p class="rules">${LIVES} lives per try · back to the last checkpoint when you lose one · unlimited tries · best score counts</p>`,
-  [[done ? 'Continue' : 'Start', 'go'], ...(A.api.local ? [] : [['Log out', 'logout', 'ghost']])], 'title'));
-  bind({ go: () => { ui(''); A.map.inputOff = false; }, logout: async () => { await A.api.logout().catch(() => {}); location.reload(); } });
+  const items = [[done ? 'Continue' : 'Play', 'go'], ['Sticker album', 'album', 'ghost'], ['Top list', 'board', 'ghost'], ['Settings', 'settings', 'ghost'], ['Credits', 'credits', 'ghost'], ...(A.api.local ? [] : [['Log out', 'logout', 'ghost']])];
+  ui(`<div class="veil menu-veil"><div class="menu">
+    <h1 class="logo">BRASILI<span>3D</span></h1>
+    <p class="sub">Road to Rio · Women's World Cup 2027</p>
+    <p class="who">Hi <b>${esc(A.user.nickname)}</b> · ${totalScore(A.st).toLocaleString('en')} pts · album ${albumCount(A.st)}/${albumTotal(A.data, A.worlds)} · ${done} level${done === 1 ? '' : 's'} done</p>
+    <div class="menu-btns">${items.map(([t, k, c]) => `<button class="btn ${c || ''}" data-a="${k}">${t}</button>`).join('')}</div>
+    <p class="hint-line">${LIVES} lives per try · unlimited tries · best score counts</p>
+  </div></div>`);
+  const btns = [...document.querySelectorAll('#ui .menu-btns .btn')];
+  const close = () => { window.removeEventListener('keydown', keys); };
+  const back = () => mainMenu();
+  const act = {
+    go: () => { close(); ui(''); A.map.inputOff = false; },
+    album: () => { close(); showAlbum(null, back); },
+    board: () => { close(); showBoard(back); },
+    settings: () => { close(); settingsCard(back); },
+    credits: () => { close(); creditsCard(back); },
+    logout: async () => { close(); await A.api.logout().catch(() => {}); location.reload(); },
+  };
+  btns.forEach(b => b.onclick = () => act[b.dataset.a]());
+  const keys = e => {
+    const i = btns.indexOf(document.activeElement);
+    if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); btns[(i + (e.code === 'ArrowDown' ? 1 : btns.length - 1) + btns.length) % btns.length].focus(); }
+    else if (e.code === 'Escape' && !first) { e.preventDefault(); act.go(); }
+  };
+  window.addEventListener('keydown', keys);
+  btns[0].focus();
 }
-function showBoard() {
-  A.map.inputOff = true;
-  openBoard($('#ui'), { api: A.api, data: A.data, user: A.user, onClose: () => { A.map.inputOff = false; } });
+function settingsCard(back) {
+  const q = getQualitySetting();
+  const opt = (v, t) => `<option value="${v}" ${q === v ? 'selected' : ''}>${t}</option>`;
+  ui(card('Settings', `
+    <form onsubmit="return false"><label>Graphics<select id="q-sel">${opt('auto', 'Auto (recommended)')}${opt('high', 'High – best look')}${opt('mid', 'Medium')}${opt('low', 'Low – for old phones')}</select></label></form>
+    <p class="note">Auto picks by device and lowers itself if the game runs slowly. The change applies from the next level.</p>
+    <div class="keys"><span><kbd>←</kbd><kbd>→</kbd> walk / run</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> play · jump · shoot</span><span><kbd>A</kbd> album</span><span><kbd>L</kbd> top list</span><span><kbd>Esc</kbd> menu / pause</span></div>`,
+  [['Back', 'back']]));
+  $('#q-sel').onchange = e => setQualitySetting(e.target.value);
+  bind({ back });
+  const k = e => { if (e.code === 'Escape') { window.removeEventListener('keydown', k); back(); } };
+  window.addEventListener('keydown', k);
+  $('[data-a=back]').addEventListener('click', () => window.removeEventListener('keydown', k));
 }
-function showAlbum(focus) {
+function creditsCard(back) {
+  ui(card('Credits', `
+    <p>Game, levels, worlds and characters are generated in code.</p>
+    <p class="note">3D by <b>three.js</b> (MIT). Fonts <b>Bangers</b> and <b>Press Start 2P</b> (SIL Open Font License). Stadium photos for the intro: Wikimedia Commons (public domain / CC), turned into comic art in your browser. Teams and squads are placeholders from 2023 until the draw on 11 December 2026. No logos, no real likenesses.</p>`,
+  [['Back', 'back']]));
+  bind({ back });
+  const k = e => { if (e.code === 'Escape') { window.removeEventListener('keydown', k); back(); } };
+  window.addEventListener('keydown', k);
+  $('[data-a=back]').addEventListener('click', () => window.removeEventListener('keydown', k));
+}
+function showBoard(back) {
   A.map.inputOff = true;
-  openAlbum($('#ui'), { data: A.data, worlds: A.worlds, progress: A.st, focus, onClose: () => { A.map.inputOff = false; } });
+  openBoard($('#ui'), { api: A.api, data: A.data, user: A.user, onClose: () => { if (back) back(); else A.map.inputOff = false; } });
+}
+function showAlbum(focus, back) {
+  A.map.inputOff = true;
+  openAlbum($('#ui'), { data: A.data, worlds: A.worlds, progress: A.st, focus, onClose: () => { if (back) back(); else A.map.inputOff = false; } });
 }
 
 // ------------------------------------------------------------------ level

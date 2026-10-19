@@ -12,11 +12,19 @@ export const TIERS = {
 };
 const ORDER = ['high', 'mid', 'low'];
 
-// ?q=high|mid|low forces a tier (no automatic step-down); otherwise phones start on mid, desktops on high
+// the player's choice in the settings menu: auto | high | mid | low
+const QKEY = 'brasili-quality';
+export function getQualitySetting() { try { const v = localStorage.getItem(QKEY); return v === 'auto' || TIERS[v] ? v : 'auto'; } catch { return 'auto'; } }
+export function setQualitySetting(v) { try { localStorage.setItem(QKEY, v); } catch { /* storage unavailable */ } }
+
+// ?q=high|mid|low in the address forces a tier for testing; then the setting; otherwise phones start on mid,
+// desktops on high (both step down by themselves when the game runs slowly)
 export function pickTier() {
   let forced = null;
   try { forced = new URLSearchParams(location.search).get('q'); } catch { /* no location */ }
   if (forced && TIERS[forced]) return { name: forced, auto: false };
+  const saved = getQualitySetting();
+  if (TIERS[saved]) return { name: saved, auto: false };
   const phone = matchMedia?.('(pointer: coarse)').matches;
   const weak = (navigator.hardwareConcurrency || 8) < 4 || (navigator.deviceMemory || 8) < 3;
   return { name: weak ? 'low' : phone ? 'mid' : 'high', auto: true };

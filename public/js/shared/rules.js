@@ -9,7 +9,7 @@
 import { levelFacts } from './levelgen.js';
 import { computeScore } from './scoring.js';
 
-export const WORLD3D_CODES = ['ESP', 'NZL', 'NOR', 'SUI', 'PHI']; // = keys of WORLDS in game3d/themes3d.js
+export const WORLD3D_CODES = ['ESP', 'NZL', 'NOR', 'SUI', 'PHI', 'AUS', 'IRL', 'NGA', 'CAN']; // = keys of WORLDS in game3d/themes3d.js
 export const GOALWALL = { SHOTS: 6, HIT: 250, ALL: 500 };
 
 export const blankProgress = () => ({ levels: {}, album: {}, bonus: {}, at: null });
@@ -34,13 +34,14 @@ export function levelOpen(st, worlds, w, i) {
   if (i > 0) return !!st.levels[worlds[w].matches[i - 1].id]?.done;
   const prev = worlds[w - 1]; return !!st.levels[prev.matches[prev.matches.length - 1].id]?.done;
 }
-// the bonus level opens after the first goal in its world (only world 1 is built so far)
+// the bonus level opens after the first goal in its world
 export function bonusOpen(st, world) {
   if (!world.bonus) return false;
   if (st.unlockAll) return true;
   return world.matches.some(m => st.levels[m.id]?.scored || st.levels[m.id]?.goal);
 }
-export const bonusPlayable = (st, world) => bonusOpen(st, world) && (st.unlockAll || world.index === 0);
+export const BONUS_WORLDS = 2; // the bonus level exists for the first two worlds so far
+export const bonusPlayable = (st, world) => bonusOpen(st, world) && (st.unlockAll || world.index < BONUS_WORLDS);
 export const albumCount = st => Object.values(st.album).reduce((s, a) => s + a.length, 0);
 export const totalScore = st => Object.values(st.levels).reduce((s, l) => s + (l.best || 0), 0) + Object.values(st.bonus).reduce((s, b) => s + (b.best || 0), 0);
 

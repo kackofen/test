@@ -7,8 +7,8 @@ vor jedem Level. Seit 1.3 läuft alles über den Server; die Pixel-Version (1.1)
 ## Das Spiel
 
 Weltkarte mit 9 Inseln (Gruppe A–H à 6 Spiele, K.-o.-Welt mit 16). Ein Level öffnet sich, sobald das davor
-geschafft ist, die nächste Welt nach dem letzten Level der vorigen. Spielbar ist Gruppe A (Neuseeland, Norwegen,
-Philippinen, Schweiz, jedes Land mit eigener 3D-Welt); die Mannschaften sind Platzhalter von 2023.
+geschafft ist, die nächste Welt nach dem letzten Level der vorigen. Spielbar sind Gruppe A (Neuseeland, Norwegen,
+Philippinen, Schweiz) und Gruppe B (Australien, Irland, Nigeria, Kanada), jedes Land mit eigener 3D-Welt; die Mannschaften sind Platzhalter von 2023.
 
 - **Login ist Pflicht** (Spitzname, E-Mail, Passwort). Fortschritt, Sticker-Album, Bonuslevel und Punkte liegen auf dem
   Server (`data/db.json`), nicht im Browser – man kann also auf jedem Gerät weiterspielen.
@@ -16,7 +16,8 @@ Philippinen, Schweiz, jedes Land mit eigener 3D-Welt); die Mannschaften sind Pla
   letzten Checkpoint (Uhr = Stand dort, mindestens 20 s). Nach dem 3. Leben Game over, das Level startet wieder beim Anstoß.
 - **Unendlich viele Versuche.** Für die Bestenliste zählt der **beste** Versuch pro Level (`SCORE_MODE=first`: der erste beendete).
 - **Drei Finales** im Wechsel: Kopfball, Freistoß (Winkel + Kraft über die Mauer), Elfmeter (Ecke + Höhe).
-- **Bonuslevel „The Goal Wall“** (Torwandschießen) öffnet sich nach dem ersten Tor in der Welt; bis zu 6 × 250 + 500 Punkte.
+- **Hauptmenü** (beim Start und mit `Esc` auf der Karte): Weiterspielen, Album, Bestenliste, Einstellungen (Grafikstufe), Credits, Abmelden.
+- **Bonuslevel „The Goal Wall“** (Torwandschießen) öffnet sich nach dem ersten Tor in der Welt (bisher Welt 1 und 2); bis zu 6 × 250 + 500 Punkte.
 - **Sticker-Album:** 11 Spielerinnen pro Team, die Sticker kommen mit dem beendeten Level ins Album.
 - **Bestenliste** im Spiel (Knopf „TOP LIST“ oder Taste `L`, gesamt oder pro Level) und für das Dashboard (`board.html`).
 - Steuerung: Pfeiltasten/A-D, Shift = Sprint, Leertaste = Springen/Schießen, Esc = Pause, `A` = Album, `L` = Bestenliste. Gamepad und Touch gehen auch.

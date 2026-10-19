@@ -4,7 +4,7 @@
 import { toon, box, sphere, cylinder, cone, canvasTexture, hex, inkMaterial, glowSprite, INK } from './toon.js';
 import { makeFootballer, animate } from './rig.js';
 import { drawFlag } from '../ui/flags.js';
-import { levelOpen, bonusOpen, playable } from './progress.js';
+import { levelOpen, bonusOpen, bonusPlayable, BONUS_WORLDS, playable } from './progress.js';
 import { finaleKind, FINALE_LABEL } from '../shared/finale.js';
 import { instanced, makeRnd } from './themes3d.js';
 
@@ -61,7 +61,7 @@ function stadiumModel() {
 }
 
 export class WorldMap {
-  // o: { renderer, data, worlds, progress, look, onEnter(node), onAlbum(), onBoard(), canToggleUnlock(), onToggleUnlock() }
+  // o: { renderer, data, worlds, progress, look, onEnter(node), onAlbum(), onBoard(), onMenu(), canToggleUnlock(), onToggleUnlock() }
   constructor(container, o) {
     this.c = container; this.o = o; this.data = o.data; this.worlds = o.worlds; this.st = o.progress;
     this.t = 0;
@@ -196,8 +196,8 @@ export class WorldMap {
         n.base.material.color.setHex(col);
         n.ballMesh.visible = n.goal; n.doneMesh.visible = n.done;
       } else {
-        n.open = bonusOpen(st, this.worlds[n.w]) && (st.unlockAll || n.w === 0);
-        n.playable = n.w === 0 || st.unlockAll;
+        n.open = bonusPlayable(st, this.worlds[n.w]);
+        n.playable = st.unlockAll || n.w < BONUS_WORLDS;
         n.best = st.bonus[n.key]?.best || 0; n.done = !!st.bonus[n.key]?.played;
         n.base.material.color.setHex(!n.open ? 0x9aa0ad : 0xb57bff);
       }
@@ -295,6 +295,7 @@ export class WorldMap {
       if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); this.enter(); }
       if (e.code === 'KeyA') { e.preventDefault(); this.o.onAlbum(); }
       if (e.code === 'KeyL') { e.preventDefault(); this.o.onBoard(); }
+      if (e.code === 'Escape') { e.preventDefault(); this.o.onMenu?.(); }
     };
     window.addEventListener('keydown', this.onKey);
     this.onResize = () => this.resize(); window.addEventListener('resize', this.onResize); this.resize();

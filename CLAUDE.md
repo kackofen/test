@@ -29,6 +29,7 @@ Privat, nicht öffentlich, nicht zum Vertrieb. Getrennt vom Dashboard `clink.com
 - **Kader:** 11 Spielerinnen pro Team als Sticker über Bonus-Sprünge, Name platzt auf; Sticker-Album über das ganze Turnier.
 - **Stadion-Intro** (~10 s, Comic-Stil) vor jedem Level: Stadtmotiv → Stadion → Schriftzug → Flug hinein → Übergang zum Level.
   Fotos von Wikimedia Commons (gemeinfrei/CC), im Browser zu Comic gefiltert; ohne Fotos gezeichnete Panels.
+- Hauptmenü mit Esc erreichbar; Grafikstufe in den Einstellungen (localStorage `brasili-quality`: auto/high/mid/low).
 - Ton: vorerst stumm. Steuerung: Tastatur (Pfeile/WASD, Shift Sprint, Leertaste Springen/Schießen, Esc Pause), Gamepad, Touch.
 - **Mannschaften = Platzhalter von 2023**, echter Spielplan 2027 (Daten, Städte, Stadien). Nach der Auslosung am
   **11.12.2026** und den Kader-Nominierungen werden Teams/Kader in `tools/build-data.mjs` + `tools/squads2023.txt` ersetzt.
@@ -55,7 +56,9 @@ public/js/game3d/
                 Qualitätsstufen high/mid/low (`?q=high|mid|low` erzwingt eine Stufe, sonst Auto + Herunterschalten bei < ~36 fps)
   game3d.js     3D-Renderer des Spielkerns (zwei Länderwelten, Kamera, Finales, HUD, Partikel)
   world.js      Spielstreifen, Sammelobjekte, Checkpoints, Stadion
-  themes3d.js   Länderwelten in 3D: WORLDS.ESP/NZL/NOR/SUI/PHI (+ neutrale Welt für alle anderen)
+  themes3d.js   Länderwelten in 3D: WORLDS.ESP/NZL/NOR/SUI/PHI (+ neutrale Welt für alle anderen) und die Bausteine dafür
+  themes3d-b.js Gruppe B (Welt 2): AUS/IRL/NGA/CAN mit Sammelobjekten (Bumerang, Kleeblatt, Trommel, Ahornblatt), Blocktexturen,
+                Wahrzeichen und Tieren; bekommt die Bausteine aus themes3d.js übergeben (installGroupB), kein Zirkel-Import
   bonus3d.js    Bonuslevel The Goal Wall
   album.js      Sticker-Album
   rig.js        prozedurale Spielerin: schlanke Proportionen, Trikot-Textur (Muster aus den Kit-Farben, Rückennummer + Name über
@@ -95,7 +98,8 @@ public/dev-3d.html        Testseite: lädt ein Level (?m=Spielnummer), `g.advanc
    bestem Versuch, `board.html`). Offen daraus: Anti-Cheat ist wie früher Mindestzeit + Deckelung (Bonus: nur Trefferzahl,
    Album: nur Kader des Teams); echte Prüfung per Replay kommt mit der Geister-Idee (Punkt 4). Trikot-Look (`/api/profile`) ist
    noch ohne Oberfläche, die 3D-Version nutzt `DEFAULT_LOOK`.
-2. 3D-Welten für die übrigen Teams (nach der Auslosung die 32 echten Teams), danach Gruppen B–H und K.-o.-Welt spielbar.
+2. 3D-Welten für die übrigen Teams (nach der Auslosung die 32 echten Teams): Gruppe A und B sind spielbar (9 Länder), Gruppen C–H
+   und K.-o.-Welt fehlen noch. Neue Welt = `WORLDS`-Eintrag + Code in `WORLD3D_CODES` (shared/rules.js).
 3. Bonuslevel für die anderen Welten (Varianten), K.-o.-Welt mit Stadion-Finale ausbauen.
 4. Ideen gegen Eintönigkeit (mit Linda besprochen): Geist des besten Laufs von Kolleg:innen (Eingaben aufzeichnen –
    Spielkern ist deterministisch, Server könnte Läufe nachspielen), Wetter/Tageszeit nach Anstoßzeit,

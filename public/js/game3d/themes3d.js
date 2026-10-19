@@ -3,6 +3,7 @@
 // without their own world get a neutral one in their colours.
 /* global THREE */
 import { toon, box, sphere, cylinder, cone, merge, canvasTexture, glowSprite, hex, shadeHex, inkMaterial, INK } from './toon.js';
+import { installGroupB } from './themes3d-b.js';
 
 export const makeRnd = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -580,4 +581,7 @@ export function buildWorldScenery(team, x0, x1, zo = 0, seed = 1) {
   s.group.add(clouds(x0, x1, rnd));
   return s;
 }
+// world 2 (group B): Australia, Ireland, Nigeria, Canada – in their own file, they get the building blocks above
+Object.assign(WORLDS, installGroupB({ plain, ridge, peaks, trunkCrownTrees, firs, houses, along, instanced, instancedInked, quadruped, sheepFlock, palms, skyTower, stripedTex, ITEMS, ITEM_ICON, ITEM_NAME, BLOCKS }));
+
 export { woodTex };

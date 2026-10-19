@@ -115,3 +115,15 @@ kbd { font-family: system-ui, sans-serif; font-weight: 700; font-size: 11px; bac
 .board tr.me td { background: #fff3b8; font-weight: 700; }
 .userchip { position: absolute; left: 2%; bottom: 2%; z-index: 1; font-family: 'Press Start 2P', monospace; font-size: 8px; color: rgba(255, 255, 255, .8); }
 .userchip button { font: inherit; background: none; border: 0; color: var(--yellow); cursor: pointer; text-decoration: underline; }
+
+/* main menu */
+.menu-veil { background: radial-gradient(ellipse at 50% 40%, rgba(11, 14, 34, .25), rgba(11, 14, 34, .78)); backdrop-filter: blur(2px); }
+.menu { display: flex; flex-direction: column; align-items: center; text-align: center; width: min(520px, 94%); }
+.menu .logo { font-family: 'Bangers', Impact, sans-serif; font-weight: 400; font-size: clamp(54px, 11vw, 132px); line-height: .9; margin: 0; letter-spacing: .03em; color: var(--yellow); text-shadow: 5px 5px 0 var(--ink), -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink), 0 0 40px rgba(255, 210, 63, .35); transform: rotate(-2deg); }
+.menu .logo span { color: #fff; margin-left: .15em; }
+.menu .sub { font-family: 'Press Start 2P', monospace; font-size: clamp(7px, 1vw, 11px); color: #cfd6ff; letter-spacing: .06em; text-transform: uppercase; margin: 10px 0 4px; text-shadow: 2px 2px 0 var(--ink); }
+.menu .who { font-size: clamp(12px, 1.4vw, 15px); color: #f4f2ff; margin: 2px 0 14px; text-shadow: 1px 1px 0 var(--ink); }
+.menu-btns { display: grid; gap: 10px; width: min(300px, 90%); }
+.menu-btns .btn { font-size: clamp(22px, 2.8vw, 32px); padding: 8px 20px; }
+.menu-btns .btn:first-child { font-size: clamp(30px, 4vw, 44px); padding: 10px 20px; }
+.menu .hint-line { font-family: 'Press Start 2P', monospace; font-size: clamp(6px, .8vw, 8px); color: #9aa3d6; margin-top: 16px; text-shadow: 1px 1px 0 var(--ink); }
