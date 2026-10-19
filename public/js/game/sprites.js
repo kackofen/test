@@ -4,7 +4,7 @@ import { makeCanvas, outline, flipped, shade, disc, line, px, poly, OUTLINE, lum
 export const SKINS = ['#f6d3b3', '#eab88f', '#d39b6b', '#b07447', '#8a5432', '#5e3a22'];
 export const HAIRS = ['#1d1a1f', '#4a2c1a', '#7b4a24', '#c58b3a', '#e6c76a', '#b0442a', '#e9e2d0'];
 export const HAIR_STYLES = ['ponytail', 'bun', 'short', 'braids', 'afro'];
-export const DEFAULT_LOOK = { hairStyle: 'ponytail', hair: '#4a2c1a', skin: '#eab88f', boots: '#ff4fa3', number: 10, kit: { shirt: '#14b8a6', shorts: '#0f172a', socks: '#14b8a6' } };
+export const DEFAULT_LOOK = { hairStyle: 'ponytail', hair: '#4a2c1a', skin: '#eab88f', boots: '#ff4fa3', number: 10, name: 'BRASILI', kit: { shirt: '#14b8a6', shorts: '#0f172a', socks: '#14b8a6' } };
 
 export const FW = 20, FH = 28; // footballer frame size
 

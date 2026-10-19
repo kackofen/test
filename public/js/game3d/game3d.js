@@ -147,10 +147,10 @@ export class Game3D {
 
     // characters
     const kits = sim.kits;
-    this.player = makeFootballer({ scale: 1, look: o.look, kit: kits.me, stripes: o.teams[o.playerSide].code === 'ARG' ? '#ffffff' : null });
+    this.player = makeFootballer({ scale: 1.08, look: o.look, kit: kits.me, stripes: o.teams[o.playerSide].code === 'ARG' ? '#ffffff' : null });
     S.add(this.player.root);
     const defLook = i => ({ hairStyle: HAIR_STYLES[(i * 3 + 1) % HAIR_STYLES.length], hair: HAIRS[(i * 2 + 1) % HAIRS.length], skin: SKINS[(i * 2 + 3) % SKINS.length], boots: i % 2 ? '#1b1b1b' : '#f5f5f5' });
-    this.pool = [0, 1, 2, 3, 4, 5].map(i => { const r = makeFootballer({ scale: 1, look: defLook(i), kit: kits.opp }); r.root.visible = false; S.add(r.root); return { rig: r, enemy: null }; });
+    this.pool = [0, 1, 2, 3, 4, 5].map(i => { const r = makeFootballer({ scale: 1.08, look: defLook(i), kit: kits.opp }); r.root.visible = false; S.add(r.root); return { rig: r, enemy: null }; });
     this.wall = F.kind === 'freekick' ? [0, 1, 2].map(i => { const r = makeFootballer({ scale: 1, look: defLook(i + 2), kit: kits.opp }); r.root.visible = false; S.add(r.root); return r; }) : [];
     this.keeper = makeFootballer({ scale: 1.05, look: { hairStyle: 'bun', hair: '#2a1a12', skin: SKINS[1], boots: '#111111' }, kit: kits.gk, gk: true });
     this.keeper.root.position.set(F.goalX - 0.75, 2, 0); S.add(this.keeper.root);

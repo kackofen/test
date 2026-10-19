@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><title>dev-rig</title>
+<link rel="stylesheet" href="css/fonts.css"><style>body{margin:0;background:#000}canvas{display:block}</style></head><body>
+<script src="vendor/three.min.js"></script>
+<script type="module">
+// Test bench for the footballer rig: a row of figures in the level look.
+// ?yaw=<rad> view · ?pose=idle|run|air|cheer|kick|hurt · ?solo=1..6 · ?gk=1 (keeper kit on #6) · ?fov ?cy ?cz ?cx camera · ?q=high|mid|low
+import { Post, TIERS } from './js/game3d/fx3d.js';
+import { toon, FX } from './js/game3d/toon.js';
+import { SKINS, HAIRS } from './js/game/sprites.js';
+const Q = new URLSearchParams(location.search);
+const { makeFootballer, animate } = await import('./js/game3d/rig.js');
+await Promise.all([document.fonts.load('24px "Bangers"'), document.fonts.load('24px "Press Start 2P"')]).catch(() => {});
+const W = 1280, H = 720;
+const R = new THREE.WebGLRenderer({ antialias: true }); R.setSize(W, H); R.outputColorSpace = THREE.SRGBColorSpace; R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(R.domElement);
+const S = new THREE.Scene(); S.background = new THREE.Color(0x9fd0f5); S.fog = new THREE.Fog(0xdcefff, 25, 90);
+const cam = new THREE.PerspectiveCamera(Q.get('fov') ? +Q.get('fov') : 24, W / H, 0.1, 100);
+S.add(new THREE.HemisphereLight(0xdcefff, 0xc98a5a, 1.0)); S.add(new THREE.AmbientLight(0xffffff, 0.2));
+const sun = new THREE.DirectionalLight(0xfff0d0, 1.85); sun.position.set(-6, 14, 12); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 6, bottom: -4, near: 1, far: 50 }); S.add(sun, sun.target);
+const fill = new THREE.DirectionalLight(0x8fb4ff, 0.5); fill.position.set(-8, 6, -8); S.add(fill);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), toon(0x6fbf45)); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; S.add(ground);
+const kits = [
+  { shirt: '#14b8a6', shorts: '#0f172a', socks: '#14b8a6' }, { shirt: '#f4f4f4', shorts: '#1b1b1f', socks: '#f4f4f4' }, { shirt: '#c8102e', shorts: '#ffffff', socks: '#c8102e' },
+  { shirt: '#ffd23f', shorts: '#1e4fa3', socks: '#ffd23f' }, { shirt: '#1e4fa3', shorts: '#1e4fa3', socks: '#ffffff' }, { shirt: '#2f9e44', shorts: '#f4f4f4', socks: '#2f9e44' },
+];
+const styles = ['ponytail', 'bun', 'short', 'braids', 'afro', 'ponytail'];
+const pose = Q.get('pose') || 'idle', yaw = Q.get('yaw') != null ? +Q.get('yaw') : undefined;
+const figs = kits.map((kit, i) => {
+  const f = makeFootballer({ scale: 1, look: { hairStyle: styles[i], hair: HAIRS[(i * 2 + 1) % HAIRS.length], skin: SKINS[(i * 2 + 1) % SKINS.length], boots: i % 2 ? '#f5f5f5' : '#ff4fa3', number: [10, 7, 9, 4, 11, 8][i], name: ['MARTA', 'KERR', 'POPP', 'PUTELLAS', 'BONMATI', 'RAPINOE'][i] }, kit, gk: i === 5 && Q.get('gk') });
+  f.root.position.set((i - 2.5) * 1.35, 0, 0); S.add(f.root);
+  for (let k = 0; k < 40; k++) animate(f, { speed: pose === 'run' ? 0.8 : 0, ground: pose !== 'air', vy: pose === 'air' ? -3 : 0, mode: pose === 'idle' ? 'idle' : pose === 'run' ? 'run' : pose, yaw, snapYaw: true }, 1 / 30);
+  return f;
+});
+const cy = Q.get('cy') ? +Q.get('cy') : 1.05, cz = Q.get('cz') ? +Q.get('cz') : 17, cx = Q.get('cx') ? +Q.get('cx') : 0, span = Q.get('solo') ? 1 : 0;
+cam.position.set(cx, cy + 0.2, cz); cam.lookAt(cx, cy, 0);
+if (Q.get('solo')) { figs.forEach((f, i) => { f.root.visible = i === +Q.get('solo') - 1; f.root.position.set(0, 0, 0); }); }
+const post = Q.get('q') === 'low' ? null : new Post(R, TIERS.high); post?.setSize(W, H);
+let t = 0;
+window.frame = () => { t += 1 / 30; FX.time.value = t; for (const f of figs) animate(f, { speed: pose === 'run' ? 0.8 : 0, ground: pose !== 'air', vy: pose === 'air' ? -3 : 0, mode: pose === 'idle' ? 'idle' : pose === 'run' ? 'run' : pose, yaw, snapYaw: true }, 1 / 30); if (post) post.render(S, cam, { time: t, dusk: 0, exposure: 0.8 }); else R.render(S, cam); };
+window.frame(); document.title = 'ready';
+</script></body></html>

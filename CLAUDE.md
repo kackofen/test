@@ -58,7 +58,11 @@ public/js/game3d/
   themes3d.js   Länderwelten in 3D: WORLDS.ESP/NZL/NOR/SUI/PHI (+ neutrale Welt für alle anderen)
   bonus3d.js    Bonuslevel The Goal Wall
   album.js      Sticker-Album
-  rig.js, toon.js   prozedurale Spielerin (Animationen), Toon-Materialien/Konturen
+  rig.js        prozedurale Spielerin: schlanke Proportionen, Trikot-Textur (Muster aus den Kit-Farben, Rückennummer + Name über
+                `look.number`/`look.name`), gemaltes Gesicht mit Ausdrücken (Blinzeln, Anstrengung, Jubel …), Haarstile, Zopf-Feder.
+                Gelenke + `animate()` bleiben die Schnittstelle. Lathe-Profile immer von unten nach oben, sonst zeigen die Flächen nach innen.
+  toon.js       Toon-Materialien/Konturen
+  public/dev-rig.html   Prüfstand für die Figur (Pose, Ansicht, Nahaufnahme per URL, siehe Kommentar im Kopf)
 public/js/game/intro.js, comicfx.js   Stadion-Intro + Comic-Filter
 public/data/*.json        Teams, Kader, Spielplan, Stadien (aus tools/build-data.mjs)
 tools/                    build-data.mjs, build-demo3d.mjs (3D-Einzeldatei),
