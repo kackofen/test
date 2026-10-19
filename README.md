@@ -1,41 +1,25 @@
-# BRASILI – Road to Rio (Version 1.2)
+# BRASILI – Road to Rio (Version 1.3)
 
-Internes Jump-and-Run fürs Team zur Frauen-WM 2027: 64 Level, eines pro WM-Spiel,
-Adventskalender-Freischaltung, Login, 3 Leben pro Versuch mit Checkpoints, unendlich viele
-Versuche, Bestenliste und ein Comic-Stadion-Intro vor jedem Level.
+Internes 3D-Jump-and-Run fürs Team zur Frauen-WM 2027: ein Level pro WM-Spiel (64), Weltkarte, Login,
+3 Leben pro Versuch mit Checkpoints, unendlich viele Versuche, Bestenliste und ein Comic-Stadion-Intro
+vor jedem Level. Seit 1.3 läuft alles über den Server; die Pixel-Version (1.1) ist entfernt.
 
-## Regeln (neu in 1.1)
+## Das Spiel
 
-- **3 Checkpoints pro Level:** Cooling Break in der 1. Halbzeit, Halbzeitpause, Cooling Break in
-  der 2. Halbzeit. Wer dort durchläuft, sieht „Cooling Break!“ und die Checkpoint-Fahne geht hoch.
-- **3 Leben pro Versuch:** Wer ein Leben verliert, macht am letzten erreichten Checkpoint weiter,
-  mit dem Punktestand von dort. Die Uhr steht dann wieder auf dem Stand des Checkpoints,
-  mindestens aber auf 20 Sekunden.
-- **Game over:** Nach dem 3. verlorenen Leben ist der Versuch vorbei, das Level startet wieder
-  beim Anstoß.
-- **Unendlich viele Versuche:** Jedes Level bleibt spielbar, auch nach dem Spieltag. Für die
-  Bestenliste zählt der **beste** Versuch. Mit `SCORE_MODE=first` zählt stattdessen der erste
-  beendete Versuch, danach spielt man nur noch zum Spaß.
-- Das Team wählt man einmal pro Level, es bleibt für alle weiteren Versuche gleich.
-- Rund um die Checkpoints stehen keine Verteidigerinnen, damit niemand direkt nach dem
-  Neustart wieder umgegrätscht wird.
+Weltkarte mit 9 Inseln (Gruppe A–H à 6 Spiele, K.-o.-Welt mit 16). Ein Level öffnet sich, sobald das davor
+geschafft ist, die nächste Welt nach dem letzten Level der vorigen. Spielbar ist Gruppe A (Neuseeland, Norwegen,
+Philippinen, Schweiz, jedes Land mit eigener 3D-Welt); die Mannschaften sind Platzhalter von 2023.
 
-## Was in Version 1 steckt
-
-- **Spielplan:** echte Daten, Städte und Stadien der WM 2027. Die Mannschaften sind Platzhalter
-  von 2023, gruppenweise eingesetzt (Gruppe A 2023 → Gruppe-A-Spiele 2027 …). Die
-  Spielnummern der Gruppenphase sind vorläufig.
-- **Spielbar** sind alle Spiele, bei denen beide Länder eine fertige Welt haben (aktuell 8 Länder:
-  NZL, NOR, GER, MAR, AUS, FRA, ESP, ENG). Das ergibt 6 Level: #1, #15, #56, #59, #62, #64 (Finale).
-  Alle anderen Türen zeigen „Level in production“.
-- **Level:** 1. Halbzeit in der Welt von Team A, 2. Halbzeit in der Welt von Team B (je 90 Sekunden
-  Uhr = 45 Spielminuten), Cooling Breaks und Halbzeit-Tor als Checkpoints, am Ende Flanke +
-  Kopfball: je höher Brasili den Ball trifft, desto mehr Power. Ab 45 % Power ist er drin.
-- **Kader:** je 11 Sticker pro Halbzeit über Sprungfelder (Bonus-Sprung), Name platzt auf.
-  Verteidigerinnen tragen Namen des Gegners, die Torhüterin steht im Tor, Fan-Banner mit Namen.
-- **Intro:** pro Stadion ca. 10 Sekunden. Fotos (Wikimedia Commons, gemeinfrei/CC0 bzw. CC mit
-  Nennung) werden im Browser in Comic-Illustrationen umgewandelt. Fotos gibt es aktuell für Rio,
-  Porto Alegre, Fortaleza und Brasília; die anderen 4 Stadien bekommen ein gezeichnetes Comic-Panel.
+- **Login ist Pflicht** (Spitzname, E-Mail, Passwort). Fortschritt, Sticker-Album, Bonuslevel und Punkte liegen auf dem
+  Server (`data/db.json`), nicht im Browser – man kann also auf jedem Gerät weiterspielen.
+- **3 Leben pro Versuch, 3 Checkpoints** (Cooling Break 1. HZ, Halbzeit, Cooling Break 2. HZ). Leben verloren → zurück zum
+  letzten Checkpoint (Uhr = Stand dort, mindestens 20 s). Nach dem 3. Leben Game over, das Level startet wieder beim Anstoß.
+- **Unendlich viele Versuche.** Für die Bestenliste zählt der **beste** Versuch pro Level (`SCORE_MODE=first`: der erste beendete).
+- **Drei Finales** im Wechsel: Kopfball, Freistoß (Winkel + Kraft über die Mauer), Elfmeter (Ecke + Höhe).
+- **Bonuslevel „The Goal Wall“** (Torwandschießen) öffnet sich nach dem ersten Tor in der Welt; bis zu 6 × 250 + 500 Punkte.
+- **Sticker-Album:** 11 Spielerinnen pro Team, die Sticker kommen mit dem beendeten Level ins Album.
+- **Bestenliste** im Spiel (Knopf „TOP LIST“ oder Taste `L`, gesamt oder pro Level) und für das Dashboard (`board.html`).
+- Steuerung: Pfeiltasten/A-D, Shift = Sprint, Leertaste = Springen/Schießen, Esc = Pause, `A` = Album, `L` = Bestenliste. Gamepad und Touch gehen auch.
 
 ## Punkte
 
@@ -47,12 +31,12 @@ Versuche, Bestenliste und ein Comic-Stadion-Intro vor jedem Level.
 | Alle 11 Sticker einer Halbzeit | +500 |
 | Verteidigerin übersprungen | 50 |
 | Restzeit pro Sekunde (je Halbzeit) | 5 |
-| Kopfball-Power | bis 500 |
+| Finale (Kopfball-Power / Schussqualität) | bis 500 |
 | Tor | 1.500 |
 
-Gewertet wird nur ein beendeter Versuch (Kopfball gespielt). Es zählt der beste Versuch pro Level
-(bzw. der erste mit `SCORE_MODE=first`). Der Server rechnet alles selbst nach, deckelt unmögliche
-Werte und lehnt Läufe ab, die schneller sind als physikalisch möglich.
+Gewertet wird nur ein beendeter Versuch. Der Server rechnet alles selbst nach (`public/js/shared/rules.js`, `scoring.js`,
+`finale.js`): Werte werden auf die Maxima des Levels gedeckelt, zu schnelle Läufe abgelehnt, Freistoß und Elfmeter
+aus Winkel/Ziel + Kraft neu berechnet, Sticker nur aus dem Kader der beiden Teams angenommen, Level nur bei erfülltem Freischalt-Stand gestartet.
 
 ## Installation auf loire-pi (Docker Compose)
 
@@ -97,10 +81,8 @@ Danach `caddy reload` bzw. den Caddy-Container neu starten.
 
 | Variable | Bedeutung |
 |---|---|
-| `UNLOCK_MODE` | `all` = Testphase, alle Türen offen · `date` = Adventskalender |
-| `UNLOCK_TIME`, `UNLOCK_OFFSET` | Türöffnung am Spieltag, Standard 06:00 MESZ |
-| `SIM_NOW` | „Jetzt“ simulieren, um den Kalender zu testen |
-| `ADMIN_EMAILS` | Admins (können Level zurücksetzen) |
+| `UNLOCK_ALL` | `1` = Testphase, alle Level für alle offen · `0` = nur durch Spielen (Standard) |
+| `ADMIN_EMAILS` | Admins: TEST-Knopf („unlock all“ nur für das eigene Konto) und Level zurücksetzen |
 | `INVITE_CODE` | wenn gesetzt, braucht man zum Registrieren diesen Team-Code |
 | `BOARD_KEY` | Schlüssel für die Dashboard-Bestenliste |
 | `SCORE_MODE` | `best` = bester Versuch zählt (Standard) · `first` = erster beendeter Versuch zählt |
@@ -110,7 +92,7 @@ Nach Änderungen: `docker compose up -d`.
 
 ## Bestenliste im Dashboard
 
-`board.html` ist eine schlanke Anzeige (Top 10 gesamt + letztes Level), aktualisiert sich jede
+`board.html` ist eine schlanke Anzeige (Top 10 gesamt + zuletzt gespieltes Level), aktualisiert sich jede
 Minute. Im Dashboard z. B.:
 
 ```html
@@ -122,20 +104,20 @@ Minute. Im Dashboard z. B.:
 Als Admin eingeloggt (Browser-Konsole oder curl mit deinem Login-Cookie):
 
 ```js
-// alle Läufe eines Spielers für ein Level zurücksetzen
-fetch('api/admin/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: 'Linda', matchId: 64 }) })
-// alle Läufe aller Spieler (z. B. nach der Testphase): body: JSON.stringify({})
+// alle Ergebnisse eines Spielers für ein Level zurücksetzen
+fetch('api/admin/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: 'Linda', matchId: 1 }) })
+// kompletter Fortschritt (Level, Bonus, Album) eines Spielers: body: { nickname: 'Linda' } · aller Spieler (nach der Testphase): body: {}
 fetch('api/admin/users').then(r => r.json()).then(console.log)
 ```
 
 Backup: einfach `data/db.json` kopieren.
 
-### Update von Version 1.0
+### Update von Version 1.2 (Pixel / Prototyp)
 
-Ordner ersetzen (den `data`-Ordner behalten!), dann `docker compose up -d --build`. Die Datenbank
-wird beim Start automatisch umgestellt: bisherige Ergebnisse bleiben als bester Versuch erhalten,
-die verbrauchten Leben zählen als Versuche. Wer ein Level mit 0 Punkten verloren hatte, kann es
-jetzt einfach erneut spielen.
+Ordner ersetzen (den `data`-Ordner behalten!), `docker-compose.yml` übernehmen (`UNLOCK_MODE`, `UNLOCK_TIME`, `UNLOCK_OFFSET`,
+`SIM_NOW` gibt es nicht mehr, dafür `UNLOCK_ALL`), dann `docker compose up -d --build`. Die Konten bleiben erhalten, die
+Ergebnisse der Pixel-Version bleiben unangetastet in `db.json` (`runs`), zählen aber nicht mehr: der Fortschritt der 3D-Version
+beginnt bei null. Der alte Link `/proto3d.html` leitet auf die Startseite um.
 
 ## Nach der Auslosung (11.12.2026) und den Kader-Nominierungen
 
@@ -147,38 +129,22 @@ node tools/build-data.mjs     # schreibt public/data/*.json
 docker compose up -d --build
 ```
 
-Neue Länder brauchen eine Welt in `public/js/game/themes.js` (Hintergrund, Wahrzeichen,
-Sammelobjekt, Tier) und `theme: true` in `build-data.mjs`. Ohne eigene Welt ist das Level
-gesperrt („Level in production“). Die Level-Layouts selbst entstehen aus der Spielnummer und
-bleiben gleich, egal welche Teams eingetragen werden.
+Neue Länderwelten in 3D: `WORLDS` in `public/js/game3d/themes3d.js` **und** `WORLD3D_CODES` in `public/js/shared/rules.js`
+ergänzen (nur dann ist ein Level spielbar). Die Level-Layouts entstehen aus der Spielnummer und bleiben gleich, egal welche Teams eingetragen werden.
 
-Achtung: Wer zum Testen schon gespielt hat, behält seine Punkte. Vor dem Start der WM die
-Testläufe mit `api/admin/reset` (leerer body) löschen.
+Achtung: Wer zum Testen schon gespielt hat, behält seine Punkte. Vor dem Start der WM die Testläufe mit `api/admin/reset` (leerer body) löschen.
 
-## 3D-Prototyp (Weltkarte)
+## Entwickeln
 
-Unter `/proto3d.html` (z. B. `https://clink.com.de/brasili/proto3d.html`) läuft der 3D-Prototyp
-(Three.js, liegt in `public/vendor`). So soll das Spiel künftig aussehen:
-
-- **Weltkarte** mit 9 Inseln: Gruppe A–H (je 6 Spiele) und die K.-o.-Welt (16 Spiele). Brasili läuft
-  von Level zu Level. Freigeschaltet wird nur durch Spielen: Ein Level öffnet sich, wenn das davor
-  geschafft ist. Der Knopf „TEST: UNLOCK ALL“ öffnet zum Testen alles.
-- **Spielbar ist Gruppe A** (Neuseeland, Norwegen, Philippinen, Schweiz), jedes Land mit eigener
-  3D-Welt (Landschaft, Wahrzeichen, Tiere, Sammelobjekt). Beide Halbzeiten werden gespielt.
-- **Drei Finales** im Wechsel: Kopfball, Freistoß (Winkel + Kraft über die Mauer), Elfmeter
-  (Ecke + Höhe, Kamera hinter der Schützin).
-- **Bonuslevel „The Goal Wall“** (Torwandschießen): öffnet sich, sobald in der Welt ein Tor fällt.
-- **Sticker-Album**: 32 Teams × 11 Spielerinnen; Sticker kommen ins Album, wenn das Level geschafft ist.
-
-Der Prototyp speichert den Fortschritt nur im Browser (localStorage) und braucht keinen Login.
-`npm install` und dann `npm run build:3d` bauen daraus eine einzelne HTML-Datei in `dist/`.
+```bash
+npm install                    # nur esbuild (für den Einzeldatei-Build)
+node server/server.js          # http://localhost:8090 (Daten in ./data)
+npm run build:3d               # dist/brasili3d.html – eine Datei, läuft ohne Server (Gast, Stand im Browser)
+```
 
 ## Technik
 
 - Node.js 22 ohne Abhängigkeiten, Daten in einer JSON-Datei. Für ~250 Spieler ausreichend.
-- Spielkern `public/js/game/sim.js`: Regeln, Physik, Checkpoints und Leben, unabhängig von der
-  Grafik. Die Pixel-Version (`engine.js`) und der 3D-Prototyp (`game3d/`) nutzen denselben Kern.
-- Spiel: HTML5-Canvas, 384×216 Pixel, alle Grafiken im Code gezeichnet.
-- Steuerung: Pfeiltasten/A-D, Shift = Sprint, Leertaste = Springen (gedrückt halten = höher), Esc = Pause.
-  Gamepad funktioniert ebenfalls.
-- Credits für Fotos und Schriften: im Spiel unter „Credits“.
+- Spielkern `public/js/game/sim.js`: Regeln, Physik, Checkpoints und Leben, unabhängig von der Grafik; Renderer in `public/js/game3d/` (Three.js, liegt in `public/vendor`).
+- Alle Grafiken entstehen im Code (Three.js-Primitiven, Canvas-Texturen).
+- Credits für Fotos und Schriften: `public/fonts/OFL-*.txt`, Fotos laut Intro (Wikimedia Commons).

@@ -1,14 +1,16 @@
-// BRASILI 3D prototype: world map -> team pick -> stadium intro -> level -> result -> map,
-// plus the bonus level and the sticker album. Progress stays in this browser.
+// BRASILI 3D: login -> world map -> team pick -> stadium intro -> level -> result -> map,
+// plus the bonus level, the sticker album and the leaderboard. Progress, album, bonus levels and
+// scores live on the server (api3d.js); the browser only plays and reports.
 /* global THREE */
 import { Game3D } from './game3d.js';
 import { WorldMap } from './map3d.js';
 import { GoalWall } from './bonus3d.js';
 import { openAlbum, albumTotal } from './album.js';
-import { loadProgress, saveProgress, buildWorlds, levelOpen, bonusOpen, albumCount, totalScore } from './progress.js';
+import { openBoard } from './board3d.js';
+import { createApi } from './api3d.js';
+import { buildWorlds, levelOpen, bonusOpen, albumCount, totalScore } from './progress.js';
 import { playIntro, prepareVenue } from '../game/intro.js';
-import { computeScore } from '../shared/scoring.js';
-import { levelFacts, LIVES } from '../shared/levelgen.js';
+import { LIVES } from '../shared/levelgen.js';
 import { finaleKind, FINALE_LABEL } from '../shared/finale.js';
 import { DEFAULT_LOOK } from '../game/sprites.js';
 import { flagDataUrl } from '../ui/flags.js';
@@ -16,7 +18,7 @@ import { ITEM_NAME, world3d } from './themes3d.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const A = { data: null, worlds: null, st: null, renderer: null, map: null, game: null, bonus: null, introSeen: new Set() };
+const A = { data: null, worlds: null, api: null, user: null, cfg: null, canToggleUnlock: false, st: { levels: {}, album: {}, bonus: {}, at: null, unlockAll: false }, run: null, renderer: null, map: null, game: null, bonus: null, introSeen: new Set() };
 window.BRASILI3D = A; // handy for testing
 
 async function boot() {
@@ -25,7 +27,10 @@ async function boot() {
   A.data = Object.fromEntries(names.map((n, i) => [n, vals[i]]));
   await Promise.all([document.fonts.load('24px "Bangers"'), document.fonts.load('10px "Press Start 2P"')]).catch(() => {});
   A.worlds = buildWorlds(A.data);
-  A.st = loadProgress();
+  A.api = await createApi(A.data);
+  A.cfg = await A.api.config();
+  try { A.user = (await A.api.me()).user; } catch (e) { if (e.status !== 401) return fatal(e); A.user = await authScreen(); }
+  try { await loadState(); } catch (e) { return fatal(e); }
   const R = A.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   R.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75)); R.outputColorSpace = THREE.SRGBColorSpace;
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -33,11 +38,51 @@ async function boot() {
     renderer: R, data: A.data, worlds: A.worlds, progress: A.st, look: DEFAULT_LOOK,
     score: () => totalScore(A.st), albumCount: () => albumCount(A.st), albumTotal: () => albumTotal(A.data, A.worlds),
     onEnter: n => n.type === 'bonus' ? playBonus(n) : pickTeam(n),
-    onAlbum: () => showAlbum(), onMoved: () => saveProgress(A.st),
-    onToggleUnlock: () => { A.st.unlockAll = !A.st.unlockAll; saveProgress(A.st); A.map.refresh(); },
+    onAlbum: () => showAlbum(), onBoard: () => showBoard(), onMoved: () => A.api.setAt(A.st.at),
+    canToggleUnlock: () => A.canToggleUnlock,
+    onToggleUnlock: async () => { try { applyState(await A.api.setUnlock(!A.st.unlockAll)); A.map.refresh(); } catch (e) { toast(e.message); } },
   });
   showMap();
   titleCard();
+}
+
+// the progress object is shared with the map, so new server state is copied in, not swapped
+function applyState(r) {
+  if (r.canToggleUnlock != null) A.canToggleUnlock = r.canToggleUnlock;
+  for (const k of Object.keys(A.st)) delete A.st[k];
+  Object.assign(A.st, r.state);
+}
+async function loadState() { applyState(await A.api.state()); }
+function fatal(e) { ui(card('Oops', `<p>${esc(e.message)}</p>`, [['Reload', 'reload']])); bind({ reload: () => location.reload() }); }
+function toast(msg) { const t = document.createElement('div'); t.className = 'skip'; t.textContent = msg; $('.screen').appendChild(t); setTimeout(() => t.remove(), 3500); }
+
+// ------------------------------------------------------------------ login
+function authScreen() {
+  return new Promise(resolve => {
+    let reg = false, busy = false;
+    const draw = (err = '') => {
+      ui(`<div class="veil"><div class="card"><h2>BRASILI <span>${reg ? 'SIGN UP' : 'LOG IN'}</span></h2>
+        <p class="kicker">Women's World Cup 2027 · team game</p>
+        <form id="auth" autocomplete="on">
+          ${reg ? '<label>Nickname<input name="nickname" maxlength="20" autocomplete="nickname" required></label>' : ''}
+          <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password${reg ? ' (min. 8 characters)' : ''}<input name="password" type="password" minlength="${reg ? 8 : 1}" autocomplete="${reg ? 'new-password' : 'current-password'}" required></label>
+          ${reg && A.cfg.invite ? '<label>Team code<input name="invite" autocomplete="off" required></label>' : ''}
+          <p class="err" role="alert">${esc(err)}</p>
+          <div class="actions"><button class="btn" type="submit">${reg ? 'Sign up' : 'Log in'}</button></div>
+        </form>
+        <p class="note">${reg ? 'Already signed up?' : 'First time here?'} <button class="link" type="button" id="swap">${reg ? 'Log in' : 'Sign up'}</button></p></div></div>`);
+      $('#swap').onclick = () => { reg = !reg; draw(); };
+      $('#auth input').focus();
+      $('#auth').onsubmit = async e => {
+        e.preventDefault(); if (busy) return; busy = true;
+        const f = Object.fromEntries(new FormData(e.target));
+        try { const r = reg ? await A.api.register(f.nickname, f.email, f.password, f.invite) : await A.api.login(f.email, f.password); ui(''); resolve(r.user); }
+        catch (x) { busy = false; draw(x.message); }
+      };
+    };
+    draw();
+  });
 }
 
 function ui(html) { $('#ui').innerHTML = html; }
@@ -58,12 +103,16 @@ function titleCard() {
   A.map.inputOff = true;
   const done = Object.values(A.st.levels).filter(l => l.done).length;
   ui(card('BRASILI <span>3D</span>', `
-    <p class="kicker">Prototype · World map · Women's World Cup 2027 · Teams = 2023 placeholders</p>
+    <p class="kicker">Hi ${esc(A.user.nickname)} · Women's World Cup 2027 · Teams = 2023 placeholders</p>
     <p>Nine worlds: Group A to H and the knockouts. Walk from match to match – every level you finish opens the next one. Group A is playable: New Zealand, Norway, the Philippines and Switzerland, each with its own world, and three different finales.</p>
-    <div class="keys"><span><kbd>←</kbd><kbd>→</kbd> walk / run</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> play · jump · shoot</span><span><kbd>A</kbd> album</span><span><kbd>Esc</kbd> pause</span></div>
+    <div class="keys"><span><kbd>←</kbd><kbd>→</kbd> walk / run</span><span><kbd>Shift</kbd> sprint</span><span><kbd>Space</kbd> play · jump · shoot</span><span><kbd>A</kbd> album</span><span><kbd>L</kbd> top list</span><span><kbd>Esc</kbd> pause</span></div>
     <p class="rules">${LIVES} lives per try · back to the last checkpoint when you lose one · unlimited tries · best score counts</p>`,
-  [[done ? 'Continue' : 'Start', 'go']], 'title'));
-  bind({ go: () => { ui(''); A.map.inputOff = false; } });
+  [[done ? 'Continue' : 'Start', 'go'], ...(A.api.local ? [] : [['Log out', 'logout', 'ghost']])], 'title'));
+  bind({ go: () => { ui(''); A.map.inputOff = false; }, logout: async () => { await A.api.logout().catch(() => {}); location.reload(); } });
+}
+function showBoard() {
+  A.map.inputOff = true;
+  openBoard($('#ui'), { api: A.api, data: A.data, user: A.user, onClose: () => { A.map.inputOff = false; } });
 }
 function showAlbum(focus) {
   A.map.inputOff = true;
@@ -94,11 +143,12 @@ async function startLevel(n, side, retry = false) {
   const m = n.m, T = A.data.teams, teams = { home: T[m.home], away: T[m.away] }, V = A.data.venues[m.venue];
   A.map.stop();
   ui('<div class="veil plain"><div class="loading">WARMING UP…</div></div>');
+  // the server opens the try (and checks that the level is open)
+  try { const r = await A.api.start(m.id, side); applyState(r); A.run = { matchId: m.id, token: r.token }; }
+  catch (e) { A.run = null; ui(card('Not yet', `<p>${esc(e.message)}</p>`, [['Back to the map', 'map']])); bind({ map: () => leaveLevel() }); return; }
   await new Promise(r => setTimeout(r, 30));
   view('gameview');
   A.game?.stop();
-  const lv = A.st.levels[m.id] ||= { done: false, best: 0, goal: false, tries: 0, side };
-  lv.side = side; lv.tries++; saveProgress(A.st);
   const game = A.game = new Game3D($('#gameview'), {
     match: m, teams, squads: A.data.squads, playerSide: side, look: DEFAULT_LOOK, renderer: A.renderer,
     onPause: p => p ? pauseCard(n, side) : ui(''),
@@ -126,30 +176,42 @@ function gameOver(n, side) {
   ui(card('Game over', `<p>All ${LIVES} lives are used. The level starts again from kick-off – as often as you like.</p>`, [['Try again', 'again'], ['Back to the map', 'map', 'ghost']]));
   bind({ again: () => startLevel(n, side, true), map: () => leaveLevel() });
 }
-function finish(n, side, r) {
-  const m = n.m, sim = A.game.sim, lv = A.st.levels[m.id];
-  const s = computeScore(r, levelFacts(m.id));
-  const wasDone = lv.done, isBest = s.total > lv.best;
+async function finish(n, side, r) {
+  const m = n.m, sim = A.game.sim;
+  const album = sim.stickers.filter(st => st.got && st.person?.no != null).map(st => [sim.halfTeam[st.half].code, st.person.no]);
+  const run = A.run;
+  const send = async () => {
+    ui('<div class="veil plain"><div class="loading">FULL TIME…</div></div>');
+    let res;
+    try { res = await A.api.finish(m.id, run.token, r, album); }
+    catch (e) {
+      ui(card('Result not saved', `<p>${esc(e.message)}</p>`, e.status && e.status !== 429 && e.status < 500 ? [['Back to the map', 'map']] : [['Send again', 'retry'], ['Back to the map', 'map', 'ghost']]));
+      bind({ retry: send, map: () => { leaveLevel(); loadState().then(() => A.map.refresh()).catch(() => {}); } });
+      return;
+    }
+    showResult(n, side, res);
+  };
+  send();
+}
+function showResult(n, side, res) {
+  const m = n.m, sim = A.game.sim;
+  const wasDone = !!A.st.levels[m.id]?.done;
   const nextIdx = A.map.seq.indexOf(n) + 1, next = A.map.seq[nextIdx];
   const nextWasOpen = next ? levelOpen(A.st, A.worlds, next.w, next.i) : true;
   const bonusWasOpen = bonusOpen(A.st, A.worlds[n.w]);
-  lv.done = true; if (isBest) { lv.best = s.total; lv.goal = s.goal; }
-  if (s.goal) lv.scored = true;
-  // stickers into the album
-  let fresh = 0;
-  for (const st of sim.stickers) if (st.got && st.person?.no != null) { const code = sim.halfTeam[st.half].code; const a = A.st.album[code] ||= []; if (!a.includes(st.person.no)) { a.push(st.person.no); fresh++; } }
-  saveProgress(A.st);
+  applyState(res);
+  const best = A.st.levels[m.id].best, isBest = res.newBest;
   const nowOpen = next ? levelOpen(A.st, A.worlds, next.w, next.i) : false;
-  const b = s.breakdown, fin = FINALE_LABEL[s.kind] || 'Header';
-  const rows = [['Reached the penalty area', b.finish], [`${ITEM_NAME[world3d(sim.halfTeam[0]).item]} & ${ITEM_NAME[world3d(sim.halfTeam[1]).item]}`, b.items], ['Player stickers', b.stickers], ['Full squad bonus', b.squad], ['Defenders dribbled', b.dribbles], ['Time left on the clock', b.time], [s.kind === 'header' ? 'Header power' : `${fin} quality`, b.header], ['Goal!', b.goal]].filter(x => x[1]);
+  const b = res.breakdown, fin = FINALE_LABEL[res.kind] || 'Header';
+  const rows = [['Reached the penalty area', b.finish], [`${ITEM_NAME[world3d(sim.halfTeam[0]).item]} & ${ITEM_NAME[world3d(sim.halfTeam[1]).item]}`, b.items], ['Player stickers', b.stickers], ['Full squad bonus', b.squad], ['Defenders dribbled', b.dribbles], ['Time left on the clock', b.time], [res.kind === 'header' ? 'Header power' : `${fin} quality`, b.header], ['Goal!', b.goal]].filter(x => x[1]);
   const notes = [];
   if (isBest && wasDone) notes.push('<b>New best score!</b>');
-  if (!isBest) notes.push(`Your best stays at <b>${lv.best.toLocaleString('en')}</b>.`);
-  if (fresh) notes.push(`<b>+${fresh}</b> new sticker${fresh > 1 ? 's' : ''} in your album.`);
+  if (!isBest) notes.push(`Your best stays at <b>${best.toLocaleString('en')}</b>.`);
+  if (res.fresh) notes.push(`<b>+${res.fresh}</b> new sticker${res.fresh > 1 ? 's' : ''} in your album.`);
   if (!nextWasOpen && nowOpen) notes.push(next.w !== n.w ? `<b>${esc(A.worlds[next.w].name)} is open!</b>` : `<b>Level ${esc(next.label)} is open!</b>`);
   const bonusNew = !bonusWasOpen && bonusOpen(A.st, A.worlds[n.w]);
   if (bonusNew) notes.push('<b>Bonus level unlocked:</b> The Goal Wall ★');
-  ui(card(s.goal ? 'GOAL!' : 'Full time!', `<table>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>+${v.toLocaleString('en')}</td></tr>`).join('')}<tr class="tot"><td>Total</td><td>${s.total.toLocaleString('en')}</td></tr></table>
+  ui(card(res.goal ? 'GOAL!' : 'Full time!', `<table>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>+${v.toLocaleString('en')}</td></tr>`).join('')}<tr class="tot"><td>Total</td><td>${res.score.toLocaleString('en')}</td></tr></table>
     <p>${notes.join(' ')}</p>`, [['Back to the map', 'map'], ['Play again', 'again', 'ghost']]));
   bind({ map: () => leaveLevel(!nextWasOpen && nowOpen ? next : (bonusNew ? n.bonus : null)), again: () => startLevel(n, side, true) });
   A.map.focusMatch(m.id);
@@ -162,10 +224,11 @@ function playBonus(n) {
   const wall = A.bonus = new GoalWall($('#gameview'), {
     renderer: A.renderer, look: DEFAULT_LOOK, kit: DEFAULT_LOOK.kit,
     onQuit: () => { wall.stop(); A.bonus = null; ui(''); showMap(); },
-    onFinish: res => {
-      const b = A.st.bonus[n.key] ||= { best: 0, hits: 0, played: false };
-      const isBest = res.score > b.best; b.played = true; if (isBest) { b.best = res.score; b.hits = res.hits; }
-      saveProgress(A.st);
+    onFinish: async g => {
+      let res;
+      try { res = await A.api.bonus(n.key, g.hits); applyState(res); }
+      catch (e) { ui(card('Result not saved', `<p>${esc(e.message)}</p>`, [['Back to the map', 'map']])); bind({ map: () => { wall.stop(); A.bonus = null; ui(''); showMap(); } }); return; }
+      const isBest = res.newBest, b = { best: res.best };
       ui(card(res.hits === 6 ? 'GOAL WALL QUEEN!' : `${res.hits} / 6`, `<p>${res.hits} hit${res.hits === 1 ? '' : 's'} · <b>${res.score.toLocaleString('en')}</b> points${isBest ? ' · new best!' : ` · best ${b.best.toLocaleString('en')}`}</p><p class="rules">250 per hit · 500 extra for all six</p>`, [['Back to the map', 'map'], ['Again', 'again', 'ghost']]));
       bind({ map: () => { wall.stop(); A.bonus = null; ui(''); showMap(); }, again: () => { wall.stop(); A.bonus = null; ui(''); playBonus(n); } });
     },

@@ -6,14 +6,10 @@ services:
     environment:
       PORT: "8090"
       DATA_DIR: /data
-      # Test phase: every door is open. For the World Cup set this to "date":
-      # each level then opens at UNLOCK_TIME (UNLOCK_OFFSET = CEST) on its match day.
-      UNLOCK_MODE: all
-      UNLOCK_TIME: "06:00"
-      UNLOCK_OFFSET: "+02:00"
-      # Simulate another "now" to test the advent calendar, e.g. "2027-06-28T07:00:00+02:00"
-      SIM_NOW: ""
-      # Your e-mail address(es), comma separated -> admin functions (reset levels)
+      # Levels open by playing (the one before must be finished). For testing "1" opens every level
+      # for everybody; admins can also switch it on for themselves with the TEST button on the map.
+      UNLOCK_ALL: "0"
+      # Your e-mail address(es), comma separated -> admin functions (test button, reset levels)
       ADMIN_EMAILS: ""
       # Optional team code that is needed to sign up (keeps the game to your team)
       INVITE_CODE: ""

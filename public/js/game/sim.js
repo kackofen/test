@@ -1,5 +1,5 @@
 // BRASILI game core: rules and physics, independent of the graphics.
-// Used by the pixel renderer (engine.js) and the 3D renderer (game3d/).
+// Used by the 3D renderer (game3d/); the server does not run it, it re-checks results with shared/rules.js.
 // Coordinates are "level pixels": 1 tile = 16, y grows downwards.
 import { generateLevel, TILE, ROWS, isSolid, isOneWay, HALF_SECONDS, LIVES, RESPAWN_MIN_CLOCK } from '../shared/levelgen.js';
 import { SCORE, liveScore } from '../shared/scoring.js';

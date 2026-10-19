@@ -1,14 +1,15 @@
 // BRASILI game server – plain Node.js (>= 20), no dependencies.
-// Serves the game, handles accounts (nickname + e-mail + password), unlimited tries per
-// level (3 lives each, handled in the game), the advent-calendar unlocking and the
-// leaderboard (best or first finished score counts). Data lives in one JSON file.
+// Serves the 3D game and keeps everything that counts on the server: accounts (nickname + e-mail +
+// password), progress (levels, sticker album, bonus levels), the unlock rules (a level opens when the
+// one before is finished) and the leaderboard (best or first finished try counts).
+// Data lives in one JSON file.
 import http from 'node:http';
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, statSync, createReadStream } from 'node:fs';
 import { join, extname, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { levelFacts, HALF_SECONDS, LIVES } from '../public/js/shared/levelgen.js';
-import { computeScore } from '../public/js/shared/scoring.js';
+import { HALF_SECONDS, LIVES } from '../public/js/shared/levelgen.js';
+import { makeContext, blankProgress, clientState, countedOf, startLevel, finishLevel, finishBonus } from '../public/js/shared/rules.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(here, '..', 'public');
@@ -16,10 +17,7 @@ const env = (k, d) => process.env[k] ?? d;
 const CFG = {
   port: +env('PORT', 8090),
   dataDir: env('DATA_DIR', join(here, '..', 'data')),
-  unlockMode: env('UNLOCK_MODE', 'all'),          // all | date
-  unlockTime: env('UNLOCK_TIME', '06:00'),         // local time on match day
-  unlockOffset: env('UNLOCK_OFFSET', '+02:00'),    // CEST (Paris/Berlin in June/July)
-  simNow: env('SIM_NOW', ''),                      // e.g. 2027-07-01T09:00:00+02:00 to test the calendar
+  unlockAll: env('UNLOCK_ALL', '0') === '1',      // test phase: every level is open for everybody
   admins: env('ADMIN_EMAILS', '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean),
   inviteCode: env('INVITE_CODE', ''),
   boardKey: env('BOARD_KEY', ''),
@@ -32,25 +30,13 @@ mkdirSync(CFG.dataDir, { recursive: true });
 
 // ------------------------------------------------------------------ static data
 const readJson = f => JSON.parse(readFileSync(join(PUBLIC, 'data', f), 'utf8'));
-const TEAMS = readJson('teams.json');
-const SCHEDULE = readJson('schedule.json');
-const MATCH = new Map(SCHEDULE.map(m => [m.id, m]));
-const FACTS = new Map(SCHEDULE.map(m => [m.id, { ...levelFacts(m.id), finale: 'header' }])); // the pixel version always ends with the header
-const playable = m => !!(TEAMS[m.home]?.theme && TEAMS[m.away]?.theme);
+const CTX = makeContext({ teams: readJson('teams.json'), squads: readJson('squads.json'), schedule: readJson('schedule.json') });
 
 // ------------------------------------------------------------------ storage
+// db.runs (levels of the old pixel version) is kept untouched but no longer used.
 const DB_FILE = join(CFG.dataDir, 'db.json');
-let db = { users: {}, sessions: {}, runs: {}, secret: crypto.randomBytes(32).toString('hex') };
+let db = { users: {}, sessions: {}, progress: {}, secret: crypto.randomBytes(32).toString('hex') };
 if (existsSync(DB_FILE)) db = { ...db, ...JSON.parse(readFileSync(DB_FILE, 'utf8')) };
-// runs from version 1 (2 lives per level) -> version 2 (unlimited tries, best score)
-for (const [k, r] of Object.entries(db.runs)) {
-  if (r.v === 2) continue;
-  const done = !!r.finished;
-  db.runs[k] = { v: 2, side: r.side || null, attempts: r.livesUsed || 0, finishes: done ? 1 : 0, active: null,
-    best: done ? r.score : 0, bestGoal: done && !!r.goal, bestBreakdown: done ? r.breakdown || null : null,
-    first: done ? r.score : null, firstGoal: done && !!r.goal, score: done ? r.score : 0, goal: done && !!r.goal, lastAt: r.finishedAt || null };
-}
-for (const r of Object.values(db.runs)) applyCounted(r); // SCORE_MODE may have changed since the last start
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
@@ -63,22 +49,15 @@ function save() {
 save();
 
 // ------------------------------------------------------------------ helpers
-const now = () => CFG.simNow ? new Date(CFG.simNow) : new Date();
-const unlockAt = m => new Date(`${m.date}T${CFG.unlockTime}:00${CFG.unlockOffset}`);
-const isUnlocked = m => CFG.unlockMode === 'all' || now() >= unlockAt(m);
 const id = (n = 16) => crypto.randomBytes(n).toString('hex');
 const hashPw = (pw, salt) => new Promise((res, rej) => crypto.scrypt(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => e ? rej(e) : res(k.toString('hex'))));
 const userByEmail = email => Object.values(db.users).find(u => u.email === email);
 const userByNick = nick => Object.values(db.users).find(u => u.nickname.toLowerCase() === nick.toLowerCase());
 const isAdmin = u => CFG.admins.includes(u.email);
-const runKey = (uid, mid) => `${uid}:${mid}`;
-const newRun = () => ({ v: 2, side: null, attempts: 0, finishes: 0, active: null, best: 0, bestGoal: false, bestBreakdown: null, first: null, firstGoal: false, score: 0, goal: false, lastAt: null });
-const getRun = (uid, mid) => db.runs[runKey(uid, mid)] ||= newRun();
-// the score that counts for the leaderboard
-function applyCounted(r) {
-  if (CFG.scoreMode === 'first') { r.score = r.first ?? 0; r.goal = !!r.firstGoal; }
-  else { r.score = r.best; r.goal = !!r.bestGoal; }
-}
+const getProgress = uid => db.progress[uid] ||= blankProgress();
+// the test switch "unlock all": on for everybody via UNLOCK_ALL, or per admin via the map button
+const unlockAllFor = u => CFG.unlockAll || (isAdmin(u) && !!u.testUnlock);
+const stateFor = u => ({ state: clientState(getProgress(u.id), CFG.scoreMode, unlockAllFor(u)), canToggleUnlock: isAdmin(u) && !CFG.unlockAll });
 
 const attempts = new Map(); // rate limiting for login/register
 function limited(key, max = 10, windowMs = 10 * 60 * 1000) {
@@ -125,31 +104,22 @@ function cleanLook(l = {}) {
   return out;
 }
 
-function levelView(u, m) {
-  const r = (u && db.runs[runKey(u.id, m.id)]) || newRun();
-  return {
-    ...m, playable: playable(m), unlocked: isUnlocked(m), unlockAt: unlockAt(m).toISOString(),
-    run: { side: r.side, attempts: r.attempts, finishes: r.finishes, finished: r.finishes > 0, score: r.score, best: r.best, goal: !!r.goal },
-  };
-}
-
+// rows of the leaderboard: one level (best/first try) or everything (levels + bonus levels)
 function leaderboard(matchId) {
   const rows = [];
-  if (matchId) {
-    for (const [k, r] of Object.entries(db.runs)) {
-      const [uid, mid] = k.split(':');
-      if (+mid !== matchId || !(r.finishes > 0)) continue;
-      const u = db.users[uid]; if (!u) continue;
-      rows.push({ nickname: u.nickname, points: r.score, goal: !!r.goal, side: r.side, attempts: r.attempts });
+  for (const [uid, ps] of Object.entries(db.progress)) {
+    const u = db.users[uid]; if (!u) continue;
+    if (matchId) {
+      const lv = ps.levels[matchId];
+      if (!lv?.done) continue;
+      const c = countedOf(lv, CFG.scoreMode);
+      rows.push({ nickname: u.nickname, points: c.score, goal: c.goal, side: lv.side, attempts: lv.tries });
+    } else {
+      const a = { nickname: u.nickname, points: 0, goals: 0, levels: 0 };
+      for (const lv of Object.values(ps.levels)) if (lv.done) { const c = countedOf(lv, CFG.scoreMode); a.points += c.score; a.goals += c.goal ? 1 : 0; a.levels++; }
+      for (const b of Object.values(ps.bonus)) a.points += b.best || 0;
+      if (a.levels > 0 || a.points > 0) rows.push(a);
     }
-  } else {
-    const agg = {};
-    for (const [k, r] of Object.entries(db.runs)) {
-      const uid = k.split(':')[0]; const u = db.users[uid]; if (!u) continue;
-      const a = agg[uid] ||= { nickname: u.nickname, points: 0, goals: 0, levels: 0 };
-      if (r.finishes > 0) { a.points += r.score; a.goals += r.goal ? 1 : 0; a.levels++; }
-    }
-    rows.push(...Object.values(agg).filter(a => a.levels > 0));
   }
   rows.sort((a, b) => b.points - a.points || (b.goals || 0) - (a.goals || 0) || a.nickname.localeCompare(b.nickname));
   let rank = 0, prev = null;
@@ -159,7 +129,7 @@ function leaderboard(matchId) {
 
 // ------------------------------------------------------------------ API
 const routes = {
-  'GET /api/config': async (req, res) => send(res, 200, { now: now().toISOString(), unlockMode: CFG.unlockMode, invite: !!CFG.inviteCode, halfSeconds: HALF_SECONDS, lives: CFG.lives, scoreMode: CFG.scoreMode }),
+  'GET /api/config': async (req, res) => send(res, 200, { invite: !!CFG.inviteCode, halfSeconds: HALF_SECONDS, lives: CFG.lives, scoreMode: CFG.scoreMode, unlockAll: CFG.unlockAll }),
 
   'POST /api/register': async (req, res) => {
     if (limited('reg:' + req.socket.remoteAddress, 8)) return fail(res, 429, 'Too many attempts – try again in a few minutes.');
@@ -194,39 +164,44 @@ const routes = {
   'GET /api/me': async (req, res, u) => send(res, 200, { user: publicUser(u) }),
   'POST /api/profile': async (req, res, u) => { const b = await readBody(req); u.look = cleanLook(b.look); save(); send(res, 200, { user: publicUser(u) }); },
 
-  'GET /api/levels': async (req, res, u) => send(res, 200, { now: now().toISOString(), unlockMode: CFG.unlockMode, levels: SCHEDULE.map(m => levelView(u, m)) }),
+  // everything the game needs to draw the map: levels, album, bonus levels
+  'GET /api/state': async (req, res, u) => send(res, 200, stateFor(u)),
+  'POST /api/at': async (req, res, u) => {
+    const b = await readBody(req), m = CTX.matches.get(+b.matchId);
+    if (m) { getProgress(u.id).at = m.id; save(); }
+    send(res, 200, { ok: !!m });
+  },
+  // test switch for admins: open every level for this account
+  'POST /api/unlock': async (req, res, u) => {
+    if (!isAdmin(u) || CFG.unlockAll) return fail(res, 403, 'Admins only.');
+    const b = await readBody(req); u.testUnlock = !!b.on; save();
+    send(res, 200, stateFor(u));
+  },
 
-  // a new try: always allowed once the door is open (3 lives per try are handled in the game)
+  // a new try: always allowed once the level is open (3 lives per try are handled in the game)
   'POST /api/run/start': async (req, res, u) => {
-    const b = await readBody(req);
-    const m = MATCH.get(+b.matchId);
-    if (!m) return fail(res, 404, 'Unknown match.');
-    if (!isUnlocked(m)) return fail(res, 403, 'This level opens on match day.');
-    if (!playable(m)) return fail(res, 403, 'This level is not built yet.');
-    const r = getRun(u.id, m.id);
-    if (!r.side) { if (!['home', 'away'].includes(b.side)) return fail(res, 400, 'Choose a team.'); r.side = b.side; }
-    r.attempts++;
-    r.active = { token: id(16), attempt: r.attempts, started: Date.now() };
+    const b = await readBody(req), ps = getProgress(u.id), mid = +b.matchId;
+    const r = startLevel(ps, CTX, mid, b.side, unlockAllFor(u));
+    if (r.error) return fail(res, ...r.error);
+    const token = id(16);
+    (ps.active ||= {})[mid] = { token, started: Date.now() };
     save();
-    send(res, 200, { token: r.active.token, attempt: r.attempts, side: r.side, lives: CFG.lives, best: r.best, counted: r.score, finishes: r.finishes, scoreMode: CFG.scoreMode });
+    send(res, 200, { token, attempt: r.tries, lives: CFG.lives, ...stateFor(u) });
   },
   'POST /api/run/finish': async (req, res, u) => {
-    const b = await readBody(req);
-    const { m, r, err } = activeRun(u, b); if (err) return fail(res, err[0], err[1]);
-    const f = FACTS.get(m.id), x = b.result || {};
+    const b = await readBody(req), ps = getProgress(u.id), mid = +b.matchId, act = ps.active?.[mid];
+    if (!CTX.matches.has(mid)) return fail(res, 404, 'Unknown match.');
+    if (!act || act.token !== b.token) return fail(res, 409, 'This try is no longer active – a newer one was started.');
     // a try always runs from kick-off; restarts at checkpoints only add time
-    const elapsed = (Date.now() - r.active.started) / 1000;
-    const minNeeded = f.minSegmentSeconds.reduce((a, v) => a + v, 0) - 3;
-    if (elapsed < minNeeded) return fail(res, 400, 'Implausible time.');
-    const s = computeScore({ items: x.items, stickers: x.stickers, dribbles: x.dribbles, timeLeft: x.timeLeft, header: x.header }, f);
-    const newBest = r.finishes === 0 || s.total > r.best;
-    r.finishes++;
-    if (r.first == null) { r.first = s.total; r.firstGoal = s.goal; }
-    if (newBest) { r.best = s.total; r.bestGoal = s.goal; r.bestBreakdown = s.breakdown; }
-    applyCounted(r);
-    r.active = null; r.lastAt = Date.now();
-    save();
-    send(res, 200, { score: s.total, breakdown: s.breakdown, goal: s.goal, newBest, best: r.best, counted: r.score, attempts: r.attempts, finishes: r.finishes, scoreMode: CFG.scoreMode });
+    const r = finishLevel(ps, CTX, mid, b.result, b.album, (Date.now() - act.started) / 1000);
+    if (r.error) return fail(res, ...r.error);
+    delete ps.active[mid]; save();
+    send(res, 200, { ...r, scoreMode: CFG.scoreMode, ...stateFor(u) });
+  },
+  'POST /api/bonus/finish': async (req, res, u) => {
+    const b = await readBody(req), r = finishBonus(getProgress(u.id), CTX, String(b.key), b.hits, unlockAllFor(u));
+    if (r.error) return fail(res, ...r.error);
+    save(); send(res, 200, { ...r, ...stateFor(u) });
   },
 
   'GET /api/leaderboard': async (req, res, u) => {
@@ -248,28 +223,20 @@ const routes = {
     const target = b.nickname ? userByNick(String(b.nickname)) : null;
     if (b.nickname && !target) return fail(res, 404, 'Unknown nickname.');
     let n = 0;
-    for (const k of Object.keys(db.runs)) {
-      const [uid, mid] = k.split(':');
-      if ((target && uid !== target.id) || (b.matchId && +mid !== +b.matchId)) continue;
-      delete db.runs[k]; n++;
+    for (const [uid, ps] of Object.entries(db.progress)) {
+      if (target && uid !== target.id) continue;
+      if (b.matchId) { if (ps.levels[+b.matchId]) { delete ps.levels[+b.matchId]; n++; } }
+      else { n += Object.keys(ps.levels).length + Object.keys(ps.bonus).length; db.progress[uid] = blankProgress(); }
     }
     save(); send(res, 200, { reset: n });
   },
 };
-function activeRun(u, b) {
-  const m = MATCH.get(+b.matchId);
-  if (!m) return { err: [404, 'Unknown match.'] };
-  const r = db.runs[runKey(u.id, m.id)];
-  if (!r?.active || r.active.token !== b.token) return { err: [409, 'This try is no longer active – a newer one was started.'] };
-  return { m, r };
-}
-
 // public read-only summary for the dashboard (needs ?key=BOARD_KEY when set)
 function boardData() {
   const overall = leaderboard(null).slice(0, 10);
-  const done = SCHEDULE.filter(m => isUnlocked(m) && playable(m)).map(m => m.id);
-  const latest = done.length ? done[done.length - 1] : null;
-  return { updated: new Date().toISOString(), players: Object.keys(db.users).length, overall, latest: latest ? { match: MATCH.get(latest), rows: leaderboard(latest).slice(0, 5) } : null };
+  let latest = null, at = 0; // the level that was finished last
+  for (const ps of Object.values(db.progress)) for (const [mid, lv] of Object.entries(ps.levels)) if (lv.done && (lv.lastAt || 0) > at) { at = lv.lastAt; latest = +mid; }
+  return { updated: new Date().toISOString(), players: Object.keys(db.users).length, overall, latest: latest ? { match: CTX.matches.get(latest), rows: leaderboard(latest).slice(0, 5) } : null };
 }
 
 // ------------------------------------------------------------------ static files
@@ -305,6 +272,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && req.headers['content-type']?.includes('application/json') !== true && path !== '/api/logout') return fail(res, 415, 'JSON expected.');
       return await route(req, res, u);
     }
+    if (path === '/proto3d.html') { res.writeHead(302, { Location: './' }); return res.end(); } // the old address of the 3D prototype
     res.setHeader('Content-Security-Policy', `frame-ancestors ${path.startsWith('/board') ? CFG.frameAncestors : "'self'"}`);
     return serveStatic(req, res, path);
   } catch (e) {
@@ -312,4 +280,4 @@ const server = http.createServer(async (req, res) => {
     if (!res.headersSent) fail(res, 500, 'Server error.');
   }
 });
-server.listen(CFG.port, () => console.log(`BRASILI running on :${CFG.port} (unlock mode: ${CFG.unlockMode}, data: ${CFG.dataDir})`));
+server.listen(CFG.port, () => console.log(`BRASILI running on :${CFG.port} (unlock all: ${CFG.unlockAll}, data: ${CFG.dataDir})`));

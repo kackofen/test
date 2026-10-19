@@ -10,7 +10,7 @@ const out = join(here, '..', 'public', 'data');
 
 // ---------------------------------------------------------------- teams
 // kit: shirt / shorts / socks, away: alternative shirt/shorts/socks, gk: goalkeeper shirt
-// theme: true = a country world (theme pack) exists in public/js/game/themes.js
+// theme: true = flag of the removed pixel version (v1.1); the 3D worlds are listed in shared/rules.js (WORLD3D_CODES)
 const T = (code, name, squadName, shirt, shorts, socks, away, gk, theme = false) =>
   ({ code, name, squadName, kit: { shirt, shorts, socks }, away, gk, theme });
 const A = (shirt, shorts, socks) => ({ shirt, shorts, socks });

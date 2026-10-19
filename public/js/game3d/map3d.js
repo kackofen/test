@@ -61,7 +61,7 @@ function stadiumModel() {
 }
 
 export class WorldMap {
-  // o: { renderer, data, worlds, progress, look, onEnter(node), onAlbum(), onToggleUnlock() }
+  // o: { renderer, data, worlds, progress, look, onEnter(node), onAlbum(), onBoard(), canToggleUnlock(), onToggleUnlock() }
   constructor(container, o) {
     this.c = container; this.o = o; this.data = o.data; this.worlds = o.worlds; this.st = o.progress;
     this.t = 0;
@@ -218,9 +218,10 @@ export class WorldMap {
     const st = this.st;
     this.hud.innerHTML = `
       <div class="mh-left"><b class="logo">BRASILI</b><span class="chip">${this.o.score().toLocaleString('en')} PTS</span></div>
-      <div class="mh-right"><button class="chip btn-album" data-a="album">ALBUM <b>${this.o.albumCount()}/${this.o.albumTotal()}</b></button><button class="chip ${st.unlockAll ? 'on' : ''}" data-a="unlock" title="Test mode: open every level">TEST: ${st.unlockAll ? 'ALL OPEN' : 'UNLOCK ALL'}</button></div>`;
+      <div class="mh-right"><button class="chip btn-album" data-a="album">ALBUM <b>${this.o.albumCount()}/${this.o.albumTotal()}</b></button><button class="chip btn-album" data-a="board">TOP LIST</button>${this.o.canToggleUnlock?.() ? `<button class="chip ${st.unlockAll ? 'on' : ''}" data-a="unlock" title="Test mode: open every level">TEST: ${st.unlockAll ? 'ALL OPEN' : 'UNLOCK ALL'}</button>` : ''}</div>`;
     this.hud.querySelector('[data-a=album]').onclick = () => this.o.onAlbum();
-    this.hud.querySelector('[data-a=unlock]').onclick = () => { this.o.onToggleUnlock(); };
+    this.hud.querySelector('[data-a=board]').onclick = () => this.o.onBoard();
+    const unlock = this.hud.querySelector('[data-a=unlock]'); if (unlock) unlock.onclick = () => { this.o.onToggleUnlock(); };
   }
   renderCard() {
     const n = this.cur, D = this.data, w = this.worlds[n.w];
@@ -293,6 +294,7 @@ export class WorldMap {
       if (k) { e.preventDefault(); this.go(k); return; }
       if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); this.enter(); }
       if (e.code === 'KeyA') { e.preventDefault(); this.o.onAlbum(); }
+      if (e.code === 'KeyL') { e.preventDefault(); this.o.onBoard(); }
     };
     window.addEventListener('keydown', this.onKey);
     this.onResize = () => this.resize(); window.addEventListener('resize', this.onResize); this.resize();

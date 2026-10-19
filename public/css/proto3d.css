@@ -103,3 +103,15 @@ kbd { font-family: system-ui, sans-serif; font-weight: 700; font-size: 11px; bac
 @media (max-width: 640px) { .album-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .album nav { max-height: 30vh; border-right: 0; border-bottom: 3px solid var(--ink); } .mc-actions { position: static; } }
 .gw-right { display: flex; gap: 12px; align-items: center; }
 .touch-map { bottom: auto; top: 14%; }
+/* login / leaderboard */
+.card form { display: grid; gap: 8px; margin: 10px auto 0; max-width: 340px; text-align: left; }
+.card label { display: grid; gap: 6px; line-height: 1.3; font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--muted); text-transform: uppercase; }
+.card input, .card select { font: 16px system-ui, sans-serif; padding: 8px 10px; border: 3px solid var(--ink); border-radius: 6px; background: #fff; color: var(--ink); max-width: 100%; }
+.card input:focus-visible, .card select:focus-visible { outline: 4px solid #3a86ff; outline-offset: 2px; }
+.card .err { color: #b3261e; font-size: 14px; font-weight: 700; min-height: 1.2em; margin: 4px 0 0; text-align: center; }
+.card .link { background: none; border: 0; padding: 0; color: #3a2bd6; text-decoration: underline; font: inherit; cursor: pointer; }
+.board table { margin-top: 4px; }
+.board td:first-child { width: 2.5em; font-family: 'Bangers', Impact, sans-serif; font-size: 22px; }
+.board tr.me td { background: #fff3b8; font-weight: 700; }
+.userchip { position: absolute; left: 2%; bottom: 2%; z-index: 1; font-family: 'Press Start 2P', monospace; font-size: 8px; color: rgba(255, 255, 255, .8); }
+.userchip button { font: inherit; background: none; border: 0; color: var(--yellow); cursor: pointer; text-decoration: underline; }

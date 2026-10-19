@@ -6,11 +6,12 @@ import { makeFootballer, animate } from './rig.js';
 import { ballMesh } from './world.js';
 import { Bursts } from '../game/bursts.js';
 import { tri } from '../shared/finale.js';
+import { GOALWALL } from '../shared/rules.js';
 
 const WALL_W = 4.4, WALL_H = 3.0, HOLE_R = 0.42, CATCH = 0.36;
 const HOLES = [{ x: -1.3, y: 0.75 }, { x: 1.3, y: 2.25 }];
 const SPOT = { x: 0, z: 8.6 };
-export const GOALWALL = { SHOTS: 6, HIT: 250, ALL: 500 };
+export { GOALWALL };
 
 export class GoalWall {
   // o: { renderer, look, kit, onFinish({hits, score, shots}), onQuit() }

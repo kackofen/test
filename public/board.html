@@ -43,7 +43,7 @@
         const m = d.latest.match;
         document.getElementById('latestTitle').textContent = `#${m.id} ${m.home} vs ${m.away}`;
         document.getElementById('latest').innerHTML = rows(d.latest.rows, true);
-      } else document.getElementById('latest').innerHTML = '<div class="empty">The first door opens on 24 June 2027.</div>';
+      } else document.getElementById('latest').innerHTML = '<div class="empty">No results yet.</div>';
     } catch (e) { document.getElementById('sub').textContent = 'LEADERBOARD UNAVAILABLE (' + e.message + ')'; }
   }
   load(); setInterval(load, 60000);
