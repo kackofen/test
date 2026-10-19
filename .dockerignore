@@ -1,0 +1,7 @@
+data/
+node_modules/
+*.zip
+public/dev-*.html
+public/devimg/
+public/img/intro/test/
+dist/

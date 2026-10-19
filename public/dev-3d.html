@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>dev</title>
+<link rel="stylesheet" href="css/game3d.css"><style>body{margin:0;background:#000}.g3d{width:1280px;height:720px;position:relative}</style></head><body>
+<div id="g3d" class="g3d"></div>
+<script src="vendor/three.min.js"></script>
+<script type="module">
+import { Game3D } from './js/game3d/game3d.js';
+import { DEFAULT_LOOK } from './js/game/sprites.js';
+const names = ['teams', 'squads', 'schedule', 'venues'];
+const D = Object.fromEntries(await Promise.all(names.map(async n => [n, await fetch(`data/${n}.json`).then(r => r.json())])));
+const id = +(new URLSearchParams(location.search).get('m') || 1);
+const match = D.schedule.find(m => m.id === id);
+window.g = new Game3D(document.getElementById('g3d'), { match, teams: { home: D.teams[match.home], away: D.teams[match.away] }, squads: D.squads, playerSide: 'home', look: DEFAULT_LOOK, onFinish: r => window.lastEvent = r, onGameOver: e => window.lastEvent = 'gameover' });
+g.advance(0.05);
+document.title = 'ready';
+</script></body></html>

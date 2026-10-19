@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRASILI Leaderboard</title>
+<link rel="stylesheet" href="css/fonts.css">
+<style>
+  :root { --ink: #1a1222; --paper: #fffaf0; --yellow: #ffd23f; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; color: #f4f2ff; background: #0d1026; background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.4px); background-size: 14px 14px; padding: 2.2vw; }
+  h1 { font-family: 'Bangers', Impact, sans-serif; font-weight: 400; font-size: clamp(32px, 5vw, 88px); margin: 0; color: var(--yellow); text-shadow: 4px 4px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink); letter-spacing: .02em; }
+  .sub { font-family: 'Press Start 2P', monospace; font-size: clamp(8px, .8vw, 13px); color: #8f95b8; margin: .6em 0 1.4em; }
+  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2vw; }
+  .panel { background: var(--paper); color: var(--ink); border: 3px solid var(--ink); border-radius: 6px; box-shadow: 6px 6px 0 var(--ink); padding: 1vw 1.4vw; }
+  .panel h2 { font-family: 'Bangers', Impact, sans-serif; font-weight: 400; font-size: clamp(22px, 2.4vw, 42px); margin: 0 0 .4em; }
+  .row { display: grid; grid-template-columns: 3em 1fr auto; align-items: center; gap: .6em; padding: .45em 0; border-bottom: 1px solid #e6dcc4; font-size: clamp(14px, 1.45vw, 26px); }
+  .row:last-child { border-bottom: 0; }
+  .rank { font-family: 'Bangers', Impact, sans-serif; font-size: 1.5em; }
+  .pts { font-family: 'Press Start 2P', monospace; font-size: .7em; }
+  .r1 .rank { color: #d4a017; } .r2 .rank { color: #8d99ae; } .r3 .rank { color: #b5651d; }
+  .empty { padding: 1em 0; font-size: clamp(14px, 1.3vw, 22px); color: #5b5470; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <h1>BRASILI · ROAD TO RIO</h1>
+  <div class="sub" id="sub">LOADING…</div>
+  <div class="grid">
+    <section class="panel"><h2>Overall top 10</h2><div id="overall"></div></section>
+    <section class="panel"><h2 id="latestTitle">Latest level</h2><div id="latest"></div></section>
+  </div>
+<script>
+  const key = new URLSearchParams(location.search).get('key') || '';
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const rows = (list, goals) => list.length ? list.map(r => `<div class="row r${r.rank}"><span class="rank">${r.rank}</span><span>${esc(r.nickname)}${goals && r.goal ? ' ⚽' : ''}</span><span class="pts">${r.points.toLocaleString('en')}</span></div>`).join('') : '<div class="empty">No results yet.</div>';
+  async function load() {
+    try {
+      const d = await fetch('api/board' + (key ? '?key=' + encodeURIComponent(key) : '')).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+      document.getElementById('sub').textContent = `${d.players} PLAYERS · UPDATED ${new Date(d.updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+      document.getElementById('overall').innerHTML = rows(d.overall);
+      if (d.latest) {
+        const m = d.latest.match;
+        document.getElementById('latestTitle').textContent = `#${m.id} ${m.home} vs ${m.away}`;
+        document.getElementById('latest').innerHTML = rows(d.latest.rows, true);
+      } else document.getElementById('latest').innerHTML = '<div class="empty">The first door opens on 24 June 2027.</div>';
+    } catch (e) { document.getElementById('sub').textContent = 'LEADERBOARD UNAVAILABLE (' + e.message + ')'; }
+  }
+  load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

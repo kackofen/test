@@ -1,0 +1,15 @@
+{
+  "name": "brasili",
+  "version": "1.2.0",
+  "private": true,
+  "description": "BRASILI – jump-and-run web game for the FIFA Women's World Cup 2027 team challenge",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "data": "node tools/build-data.mjs",
+    "build:3d": "node tools/build-demo3d.mjs node_modules/esbuild dist/brasili3d.html",
+    "build:demo": "node tools/build-demo.mjs node_modules/esbuild dist/brasili.html"
+  },
+  "devDependencies": { "esbuild": "0.28.2" },
+  "engines": { "node": ">=20" }
+}

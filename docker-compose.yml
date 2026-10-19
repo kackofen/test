@@ -1,0 +1,30 @@
+services:
+  brasili:
+    build: .
+    container_name: brasili
+    restart: unless-stopped
+    environment:
+      PORT: "8090"
+      DATA_DIR: /data
+      # Test phase: every door is open. For the World Cup set this to "date":
+      # each level then opens at UNLOCK_TIME (UNLOCK_OFFSET = CEST) on its match day.
+      UNLOCK_MODE: all
+      UNLOCK_TIME: "06:00"
+      UNLOCK_OFFSET: "+02:00"
+      # Simulate another "now" to test the advent calendar, e.g. "2027-06-28T07:00:00+02:00"
+      SIM_NOW: ""
+      # Your e-mail address(es), comma separated -> admin functions (reset levels)
+      ADMIN_EMAILS: ""
+      # Optional team code that is needed to sign up (keeps the game to your team)
+      INVITE_CODE: ""
+      # Optional key for the dashboard leaderboard: board.html?key=...
+      BOARD_KEY: ""
+      # Which try counts for the leaderboard: "best" (best finished try) or "first" (first finished try)
+      SCORE_MODE: best
+      COOKIE_SECURE: auto
+      # Pages allowed to embed board.html in an iframe (your dashboard)
+      FRAME_ANCESTORS: "'self' https://clink.com.de"
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8090:8090"
