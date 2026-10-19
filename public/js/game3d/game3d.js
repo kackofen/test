@@ -9,7 +9,8 @@ import { FK, fkAngle } from '../shared/finale.js';
 import { makeFootballer, animate } from './rig.js';
 import { buildStrip, buildDynamic, buildProps, buildStadium, ballMesh, X, Y, GOAL_HALF_W } from './world.js';
 import { buildWorldScenery, world3d, ITEM_ICON } from './themes3d.js';
-import { toon, box, cylinder, cone, hex, inkMaterial } from './toon.js';
+import { toon, box, cylinder, cone, hex, inkMaterial, FX } from './toon.js';
+import { Post, Motes, Governor, TIERS, pickTier, lowerTier } from './fx3d.js';
 import { HAIR_STYLES, SKINS, HAIRS } from '../game/sprites.js';
 import { drawFlag } from '../ui/flags.js';
 
@@ -96,6 +97,8 @@ export class Game3D {
     }
     R.domElement.className = 'g3d-canvas';
     this.c.appendChild(R.domElement);
+    const pick = pickTier(); this.tierName = pick.name; this.prevPR = R.getPixelRatio();
+    this.gov = pick.auto ? new Governor(() => this.setTier(lowerTier(this.tierName))) : null;
     this.fx = document.createElement('canvas'); this.fx.className = 'g3d-fx'; this.c.appendChild(this.fx);
     this.bursts = new Bursts(this.fx);
     this.hud = document.createElement('div'); this.hud.className = 'g3d-hud'; this.c.appendChild(this.hud);
@@ -113,7 +116,8 @@ export class Game3D {
       fragmentShader: 'uniform vec3 top; uniform vec3 bottom; uniform vec3 duskTop; uniform vec3 duskBottom; uniform float dusk; varying vec2 vUv; void main(){ float t=smoothstep(0.0,1.0,vUv.y); vec3 a=mix(bottom,top,t); vec3 b=mix(duskBottom,duskTop,t); vec3 c=mix(a,b,dusk); float band=step(0.5,fract(vUv.y*14.0))*0.015; gl_FragColor=vec4(c+band,1.0); }' }));
     sky.frustumCulled = false; sky.renderOrder = -10; S.add(sky);
     this.sun = new THREE.Group();
-    this.sun.add(new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: 0xfff4c8, fog: false })));
+    this.sunDisc = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff4c8).multiplyScalar(5), fog: false }));
+    this.sun.add(this.sunDisc);
     const halo = new THREE.Mesh(new THREE.CircleGeometry(5.5, 32), new THREE.MeshBasicMaterial({ color: 0xfff0b0, transparent: true, opacity: 0.25, fog: false, depthWrite: false }));
     halo.position.z = -0.1; this.sun.add(halo);
     this.sun.position.set(25, 12.5, -60); cam.add(this.sun);
@@ -123,8 +127,11 @@ export class Game3D {
     const sun = this.sunLight = new THREE.DirectionalLight(0xfff0d0, 2.1);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 14, bottom: -10, near: 1, far: 80 });
-    sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
+    sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
     S.add(sun); S.add(sun.target);
+    // cool fill from behind-left: gives every toon step a shape and a blue edge against the warm sun
+    this.fill = new THREE.DirectionalLight(0x8fb4ff, 0.55); this.fill.position.set(-14, 9, -12); S.add(this.fill);
+    this.motes = new Motes(TIERS.high.motes); S.add(this.motes.points);
 
     // world: strip, collectibles, props, both country sceneries, stadium
     S.add(buildStrip(sim));
@@ -167,7 +174,7 @@ export class Game3D {
 
     this.particles = new Particles(); S.add(this.particles.points);
     this.camPos = new THREE.Vector3(X(sim.player.x) + 4, 5, 23); this.camLook = new THREE.Vector3(X(sim.player.x) + 4, 3.4, 0);
-    this.resize();
+    this.setTier(this.tierName);
     this.camSnap = true;
     this.onResize = () => this.resize(); window.addEventListener('resize', this.onResize);
   }
@@ -184,11 +191,31 @@ export class Game3D {
     });
     this.scene.add(g);
   }
+  // quality tier: post-processing, shadow resolution, pixel ratio, floating motes
+  setTier(name) {
+    const T = TIERS[name]; this.tierName = name;
+    if (T.post) { if (this.post) this.post.setTier(T); else this.post = new Post(this.renderer, T); }
+    else { this.post?.dispose(); this.post = null; }
+    const sh = this.sunLight.shadow; sh.mapSize.set(T.shadow, T.shadow); sh.map?.dispose(); sh.map = null;
+    this.motes.points.visible = T.motes > 0; this.motes.points.geometry.setDrawRange(0, T.motes);
+    FX.rimK.value = (typeof window !== 'undefined' && window.FXT?.rim) ?? (T.post ? 0.16 : 0.1);
+    this.resize();
+  }
+  // one picture: through the post-processing pipeline, or straight to the screen on the low tier
+  renderFrame() {
+    if (!this.post) { this.renderer.render(this.scene, this.camera); return; }
+    const sunNdc = this.sun.position.clone().applyMatrix4(this.camera.projectionMatrix);
+    const seen = this.sun.visible && sunNdc.z < 1 && Math.abs(sunNdc.x) < 1.6 && Math.abs(sunNdc.y) < 1.6;
+    const dusk = this.skyU.dusk.value;
+    this.post.render(this.scene, this.camera, { time: this.t, dusk, exposure: 0.8 - dusk * 0.04, sunUv: seen ? new THREE.Vector2(sunNdc.x * 0.5 + 0.5, sunNdc.y * 0.5 + 0.5) : null, rays: seen ? 0.55 * (1 - dusk) : 0 });
+  }
   resize() {
     const r = this.c.getBoundingClientRect();
     const w = Math.max(320, r.width), h = Math.max(180, r.height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TIERS[this.tierName].pr));
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = '100%'; this.renderer.domElement.style.height = '100%';
+    if (this.post) { const b = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.post.setSize(b.x, b.y); }
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.view = { w, h, s: w / 384 };
   }
@@ -264,6 +291,7 @@ export class Game3D {
       const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
       for (const m of ms) { m.map?.dispose?.(); m.dispose?.(); }
     });
+    this.post?.dispose(); this.motes.dispose(); this.renderer.setPixelRatio(this.prevPR);
     if (this.ownRenderer) { this.renderer.dispose(); this.renderer.forceContextLoss?.(); }
     this.c.innerHTML = '';
   }
@@ -307,6 +335,8 @@ export class Game3D {
     const sh = this.shake > 0 ? this.shake * 0.25 : 0; this.shake = Math.max(0, this.shake - dt);
     this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * sh, this.camPos.y + (Math.random() - 0.5) * sh, this.camPos.z);
     this.camera.lookAt(this.camLook);
+    const fov = 32 + (f ? 0 : Math.min(3, Math.abs(p.vx) * 0.9)); this.fov = lerp(this.fov ?? 32, fov, Math.min(1, dt * 3));
+    if (Math.abs(this.camera.fov - this.fov) > 0.01) { this.camera.fov = this.fov; this.camera.updateProjectionMatrix(); }
     this.sunLight.position.set(this.camLook.x - 9, 22, 16); this.sunLight.target.position.set(this.camLook.x + 2, 2, 0); this.sunLight.target.updateMatrixWorld();
     // the two worlds blend at half-time, dusk + floodlights when the stadium comes into view
     const W = this.worlds, b = clamp01((this.camLook.x - (L.checkpointCol - 10)) / 20);
@@ -315,8 +345,9 @@ export class Game3D {
     this.skyU.top.value.set(W[0].sky[0]).lerp(new THREE.Color(W[1].sky[0]), b);
     this.skyU.bottom.value.set(W[0].sky[1]).lerp(new THREE.Color(W[1].sky[1]), b);
     this.scene.fog.color.set(W[0].fog).lerp(new THREE.Color(W[1].fog), b).lerp(new THREE.Color(0x3a3150), dusk * 0.65);
-    this.sunLight.intensity = 2.1 - dusk * 0.9; this.sunLight.color.setRGB(1, 0.94 - dusk * 0.1, 0.82 + dusk * 0.12);
-    this.hemi.intensity = 1.15 + dusk * 0.25; this.ambient.intensity = 0.2 + dusk * 0.45;
+    const lk = this.post ? 0.88 : 1; // the HDR pipeline does not clip, so the lights can be a bit lower
+    this.sunLight.intensity = (2.1 - dusk * 0.9) * lk; this.sunLight.color.setRGB(1, 0.94 - dusk * 0.1, 0.82 + dusk * 0.12);
+    this.hemi.intensity = (1.15 + dusk * 0.25) * lk; this.ambient.intensity = 0.2 + dusk * 0.45;
     this.sun.visible = dusk < 0.9 && !(f && f.kind === 'penalty');
   }
 
@@ -446,7 +477,9 @@ export class Game3D {
     if (Math.abs(p.vx) > 2.4 && p.onGround && Math.random() < 0.35) this.particles.emit(X(p.x) - 0.3, Y(p.y + 12) + Math.random() * 0.8, 0.3, { count: 1, color: 0xffffff, speed: 0.1, vx: -6, g: 0, life: 0.25, size: 0.16 });
     this.particles.update(dt);
     this.updateCamera(dt);
-    this.renderer.render(this.scene, this.camera);
+    FX.time.value = t % 1000; this.motes.update(t, this.camLook, this.skyU.dusk.value);
+    this.renderFrame();
+    this.gov?.tick(dt);
     this.bursts.render(0, this.view, (wx, wy) => this.project(wx, wy));
     this.updateHud();
   }
@@ -469,7 +502,7 @@ export class Game3D {
   startFrame() {
     this.updateCamera(1);
     animate(this.player, { speed: 0, ground: true, facing: 1 }, 0.016);
-    this.renderer.render(this.scene, this.camera);
+    this.renderFrame();
     const c = document.createElement('canvas'); c.width = 1280; c.height = 720;
     c.getContext('2d').drawImage(this.renderer.domElement, 0, 0, 1280, 720);
     return c;

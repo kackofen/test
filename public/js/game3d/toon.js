@@ -3,20 +3,54 @@
 /* global THREE */
 export const INK = 0x1a1222;
 
+// shared look parameters (the game updates them per frame / per world)
+export const FX = { time: { value: 0 }, rimColor: { value: new THREE.Color(0xcfe2ff) }, rimK: { value: 0.42 }, wind: { value: 1 } };
+
+// 4 light steps; the shadow steps are tinted violet/blue instead of plain grey
 let gradient = null;
 export function toonGradient() {
   if (gradient) return gradient;
-  const data = new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]);
-  gradient = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+  const data = new Uint8Array([
+    104, 92, 150, 255,
+    176, 168, 212, 255,
+    232, 228, 244, 255,
+    255, 255, 255, 255,
+  ]);
+  gradient = new THREE.DataTexture(data, 4, 1, THREE.RGBAFormat);
   gradient.minFilter = gradient.magFilter = THREE.NearestFilter;
   gradient.needsUpdate = true;
   return gradient;
 }
+// rim light (fresnel, stronger on upward faces) and optional wind sway for instanced grass
+function enhance(m, sway) {
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uRimColor = FX.rimColor; sh.uniforms.uRimK = FX.rimK; sh.uniforms.uTime = FX.time; sh.uniforms.uWind = FX.wind;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uRimColor; uniform float uRimK;')
+      .replace('#include <opaque_fragment>', `float rimF = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 2.4);
+        outgoingLight += uRimColor * rimF * uRimK * (0.55 + 0.45 * clamp(normal.y * 0.5 + 0.5, 0.0, 1.0));
+        #include <opaque_fragment>`);
+    if (sway) {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uTime; uniform float uWind;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          #ifdef USE_INSTANCING
+            float ph = instanceMatrix[3].x * 0.9 + instanceMatrix[3].z * 0.5;
+          #else
+            float ph = 0.0;
+          #endif
+          float lift = max(position.y, 0.0);
+          transformed.x += (sin(uTime * 2.1 + ph) * 0.07 + sin(uTime * 0.9 + ph * 0.3) * 0.05) * lift * uWind;`);
+    }
+  };
+  m.customProgramCacheKey = () => sway ? 'toon-rim-sway' : 'toon-rim';
+}
 const matCache = new Map();
 export function toon(color, opts = {}) {
-  const key = `${color}|${opts.map?.uuid || ''}|${opts.emissive || ''}|${opts.transparent ? 1 : 0}`;
+  const key = `${color}|${opts.map?.uuid || ''}|${opts.emissive || ''}|${opts.transparent ? 1 : 0}|${opts.sway ? 1 : 0}`;
   if (!opts.unique && matCache.has(key)) return matCache.get(key);
   const m = new THREE.MeshToonMaterial({ color, gradientMap: toonGradient(), map: opts.map || null, emissive: opts.emissive || 0x000000, emissiveIntensity: opts.emissiveIntensity ?? 1, transparent: !!opts.transparent, side: opts.side ?? THREE.FrontSide });
+  enhance(m, !!opts.sway);
   if (!opts.unique) matCache.set(key, m);
   return m;
 }

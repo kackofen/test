@@ -51,6 +51,8 @@ public/js/game3d/
   api3d.js      API-Client; ohne Server (Einzeldatei, statischer Server) läuft derselbe Regelsatz im Browser, Stand im localStorage
   board3d.js    Bestenliste (gesamt oder pro Level, Taste L)
   progress.js   dünn: re-exportiert die Regeln aus shared/rules.js
+  fx3d.js       Look: Post-Processing (HDR + MSAA, Bloom, Sonnenstrahlen, ACES, Grading, Vignette, Korn), Pollen/Glühwürmchen,
+                Qualitätsstufen high/mid/low (`?q=high|mid|low` erzwingt eine Stufe, sonst Auto + Herunterschalten bei < ~36 fps)
   game3d.js     3D-Renderer des Spielkerns (zwei Länderwelten, Kamera, Finales, HUD, Partikel)
   world.js      Spielstreifen, Sammelobjekte, Checkpoints, Stadion
   themes3d.js   Länderwelten in 3D: WORLDS.ESP/NZL/NOR/SUI/PHI (+ neutrale Welt für alle anderen)
@@ -78,6 +80,8 @@ public/dev-3d.html        Testseite: lädt ein Level (?m=Spielnummer), `g.advanc
 - Level sind deterministisch pro Spielnummer (`generateLevel(matchId)`); Änderungen am Generator → `LEVEL_VERSION` erhöhen.
 - Spiel-Logik nur in `sim.js`/`shared/`, Grafik nur in den Renderern. Server rechnet alles nach (Mindestzeit, Deckelung,
   Freistoß/Elfmeter über `finale.js` aus Winkel/Ziel + Kraft).
+- Look: `toon()` bringt farbige Schattenstufen, Rim-Light und (mit `{ sway: true }`) Wind für Instanz-Gräser mit; Lichtstärken sind auf die
+  HDR-Pipeline abgestimmt (Post-Stufen ×0.88). Neue eigene Shader brauchen für die Post-Stufe lineare Farben (kein sRGB-Handcoding).
 - Keine externen Grafiken/Modelle: alles prozedural (Three.js-Primitiven, Canvas-Texturen, `toon()` + Konturen).
 - Neue Länderwelt = Eintrag in `WORLDS` (themes3d.js): Himmel, Boden-/Block-Textur, Sammelobjekt, `build()` mit
   Hügeln, Wahrzeichen, Pflanzen, Tieren – typische Elemente des Landes, keine Klischees über Menschen.

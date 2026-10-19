@@ -571,7 +571,7 @@ export function stripMaterials(w) {
     grass: toon(0xffffff, { map: grassTex(...w.grass) }),
     block: toon(0xffffff, { map: blockTex(w.block, w.blockColor) }),
     ledge: toon(0xffffff, { map: w.ledge === 'bamboo' ? bambooTex() : woodTex() }),
-    tuft: toon(w.tuft),
+    tuft: toon(w.tuft, { sway: true }),
   };
 }
 export function buildWorldScenery(team, x0, x1, zo = 0, seed = 1) {
