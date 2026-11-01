@@ -34,7 +34,10 @@ command -v em++ >/dev/null || { echo "Fehler: Emscripten ist nicht installiert (
 # 2) Quellen (SDL2 lokal, weil Emscripten es sonst als ZIP von github.com/archive lädt – das scheitert hinter manchen Proxys)
 [ -d "$B/eduke32-wasm" ] || { git clone "$EDUKE_URL" "$B/eduke32-wasm"; }
 git -C "$B/eduke32-wasm" fetch -q origin 2>/dev/null || true
-git -C "$B/eduke32-wasm" checkout -q "$EDUKE_REF"
+git -C "$B/eduke32-wasm" checkout -q -f "$EDUKE_REF"
+git -C "$B/eduke32-wasm" clean -q -fd platform source 2>/dev/null || true
+# eigene Änderungen (z. B. 16:9-Modus) als Patches auf den festen Stand legen
+for P in "$HERE"/patches/*.patch; do [ -f "$P" ] && git -C "$B/eduke32-wasm" apply "$P" && echo "Patch angewendet: $(basename "$P")"; done
 [ -d "$B/SDL2-src" ] || git clone -q --depth 1 --branch "$SDL_TAG" https://github.com/libsdl-org/SDL "$B/SDL2-src"
 export EMCC_LOCAL_PORTS="sdl2=$B/SDL2-src"
 
