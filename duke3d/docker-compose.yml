@@ -1,0 +1,16 @@
+services:
+  duke3d:
+    build: .
+    container_name: duke3d
+    restart: unless-stopped
+    environment:
+      PORT: "8091"
+      WEB_DIR: /web
+      # Zugang zum Spiel (HTTP-Login). DUKE_PASS ist Pflicht, sonst startet der Server nicht.
+      DUKE_USER: "duke"
+      DUKE_PASS: ""
+    volumes:
+      # Ergebnis von ./build.sh (enthält die GRP, nicht im Git)
+      - ./web:/web:ro
+    ports:
+      - "127.0.0.1:8091:8091"

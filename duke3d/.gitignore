@@ -1,0 +1,6 @@
+# enthält die urheberrechtlich geschützte GRP bzw. daraus gebaute Spieldaten – nie einchecken
+web/
+.build/
+*.grp
+*.GRP
+*.data
