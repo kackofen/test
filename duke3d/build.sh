@@ -33,7 +33,10 @@ export EMCC_LOCAL_PORTS="sdl2=$B/SDL2-src"
 # 3) Bauen, GRP kommt als eingebettete Spieldaten (eduke32.data) hinein
 cd "$B/eduke32-wasm"
 rm -f eduke32.js eduke32.wasm eduke32.data
-make PLATFORM=EMSCRIPTEN EM_SINGLE_FILE=0 NETDUKE32=1 obj=obj-em GAME_DATA="$GRP" -j"$(nproc)"
+# macOS bringt nur make 3.81 mit; wenn vorhanden, wird GNU make 4 (gmake, per "brew install make") bevorzugt
+MAKE_BIN="$(command -v gmake || command -v make)"
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+"$MAKE_BIN" PLATFORM=EMSCRIPTEN EM_SINGLE_FILE=0 NETDUKE32=1 obj=obj-em GAME_DATA="$GRP" -j"$JOBS"
 
 # 4) Ausgabe
 OUT="$HERE/web"; rm -rf "$OUT"; mkdir -p "$OUT"
