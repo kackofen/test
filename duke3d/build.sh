@@ -14,14 +14,22 @@ EDUKE_URL=https://github.com/DigitalCyberSoft/eduke32-wasm
 EDUKE_REF=37b56eefaf8125eaa853c417512019cc7ad94b81
 SDL_TAG=release-2.32.10
 
-# 1) Emscripten
+# 1) Emscripten (braucht Python >= 3.10; macOS liefert nur 3.9 mit -> passendes Python suchen)
+PY=""
+for c in python3.15 python3.14 python3.13 python3.12 python3.11 python3.10 python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+  p="$(command -v "$c" 2>/dev/null || true)"; [ -n "$p" ] || continue
+  if "$p" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then PY="$p"; break; fi
+done
+[ -n "$PY" ] || { echo "Fehler: Python >= 3.10 nicht gefunden. macOS: 'brew install python@3.13'" >&2; exit 1; }
+export EMSDK_PYTHON="$PY"; echo "Python für Emscripten: $PY"
 if [ -z "${EMSDK:-}" ]; then
   EMSDK="$B/emsdk"
   if [ ! -d "$EMSDK" ]; then git clone --depth 1 https://github.com/emscripten-core/emsdk "$EMSDK"; fi
   if [ ! -d "$EMSDK/upstream/emscripten" ]; then "$EMSDK/emsdk" install latest && "$EMSDK/emsdk" activate latest; fi
 fi
 # shellcheck disable=SC1091
-source "$EMSDK/emsdk_env.sh" >/dev/null
+source "$EMSDK/emsdk_env.sh" >/dev/null 2>&1 || true
+command -v em++ >/dev/null || { echo "Fehler: Emscripten ist nicht installiert (em++ fehlt). Meldungen oben prüfen." >&2; exit 1; }
 
 # 2) Quellen (SDL2 lokal, weil Emscripten es sonst als ZIP von github.com/archive lädt – das scheitert hinter manchen Proxys)
 [ -d "$B/eduke32-wasm" ] || { git clone "$EDUKE_URL" "$B/eduke32-wasm"; }
